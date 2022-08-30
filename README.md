@@ -27,3 +27,4 @@ The path `b3` contains lambdas that fetches stock prices data directly from from
         "indexComponentIndicator": false
     }
     ```
+    - **Obs**: The `currentPrice` field has 15 minutes delay.
