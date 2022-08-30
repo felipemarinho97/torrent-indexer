@@ -4,11 +4,11 @@ This is a collection of lambdas for personal use powered by [vercel](https://ver
 
 ## statusinvest
 
-The path `statusinvest` contains lambdas that fetches the status of a company (fundamentalist analysis) from [statusinvest.com](https://statusinvest.com/).
+The path `statusinvest` contains lambdas that fetches the status of a company (fundamentalist analysis) from [statusinvest.com](https://statusinvest.com.br/).
 
 ## b3
 
-The path `b3` contains lambdas that fetches stock prices data directly from from [b3.com](https://b3.com/).
+The path `b3` contains lambdas that fetches stock prices data directly from from [b3.com](https://b3.com.br/).
 
 - `b3/prices/:symbol` [Test it!](https://vercel-lambdas-felipemarinho.vercel.app/api/b3/prices/IBOV)
     - Returns the stock prices for a given symbol.
