@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"strings"
 
 	"github.com/PuerkitoBio/goquery"
 )
@@ -67,8 +68,6 @@ func HandlerComandoIndexer(w http.ResponseWriter, r *http.Request) {
 		link, _ := s.Find("h2.entry-title > a").Attr("href")
 		links = append(links, link)
 	})
-	fmt.Println(links)
-	fmt.Println(doc.Text())
 
 	var indexedTorrents []IndexedTorrent
 	for _, link := range links {
@@ -98,7 +97,7 @@ func getTorrents(link string) ([]IndexedTorrent, error) {
 	}
 
 	article := doc.Find("article")
-	title := article.Find("h2.entry-title > a").Text()
+	title := article.Find(".entry-title").Text()
 	textContent := article.Find("div.entry-content")
 	magnets := textContent.Find("a[href^=\"magnet\"]")
 	var magnetLinks []string
@@ -125,28 +124,65 @@ func getTorrents(link string) ([]IndexedTorrent, error) {
 		// Qualidade de Vídeo: 10
 		// Duração: 59 Min.
 		// Servidor: Torrent
+		text := s.Text()
 
 		re := regexp.MustCompile(`Áudio: (.*)`)
-		audioMatch := re.FindStringSubmatch(s.Text())
+		audioMatch := re.FindStringSubmatch(text)
 		if len(audioMatch) > 0 {
-			audio = append(audio, Audio(audioMatch[1]))
+			langs_raw := strings.Split(audioMatch[1], "|")
+			for _, lang := range langs_raw {
+				lang = strings.TrimSpace(lang)
+				if lang == "Português" {
+					audio = append(audio, AudioPortuguese)
+				} else if lang == "Inglês" {
+					audio = append(audio, AudioEnglish)
+				} else if lang == "Espanhol" {
+					audio = append(audio, AudioSpanish)
+				}
+			}
 		}
 
-		re = regexp.MustCompile(`Ano de Lançamento: (.*)`)
-		yearMatch := re.FindStringSubmatch(s.Text())
+		re = regexp.MustCompile(`Lançamento: (.*)`)
+		yearMatch := re.FindStringSubmatch(text)
 		if len(yearMatch) > 0 {
 			year = yearMatch[1]
+		}
+
+		// if year is empty, try to get it from title
+		if year == "" {
+			re = regexp.MustCompile(`\((\d{4})\)`)
+			yearMatch := re.FindStringSubmatch(title)
+			if len(yearMatch) > 0 {
+				year = yearMatch[1]
+			}
 		}
 	})
 
 	// for each magnet link, create a new indexed torrent
 	for _, magnetLink := range magnetLinks {
+		releaseTitle := extractReleaseName(magnetLink)
+		magnetAudio := []Audio{}
+		if strings.Contains(strings.ToLower(releaseTitle), "dual") {
+			magnetAudio = append(magnetAudio, AudioPortuguese)
+			magnetAudio = append(magnetAudio, audio...)
+		} else {
+			// filter portuguese audio from list
+			for _, lang := range audio {
+				if lang != AudioPortuguese {
+					magnetAudio = append(magnetAudio, lang)
+				}
+			}
+		}
+
+		// remove duplicates
+		magnetAudio = removeDuplicates(magnetAudio)
+
 		indexedTorrents = append(indexedTorrents, IndexedTorrent{
-			Title:         extractReleaseName(magnetLink),
+			Title:         releaseTitle,
 			OriginalTitle: title,
 			Details:       link,
 			Year:          year,
-			Audio:         audio,
+			Audio:         magnetAudio,
 			MagnetLink:    magnetLink,
 		})
 	}
@@ -155,10 +191,24 @@ func getTorrents(link string) ([]IndexedTorrent, error) {
 }
 
 func extractReleaseName(magnetLink string) string {
-	re := regexp.MustCompile(`dn=(.*)&`)
+	re := regexp.MustCompile(`dn=(.*?)&`)
 	matches := re.FindStringSubmatch(magnetLink)
 	if len(matches) > 0 {
 		return matches[1]
 	}
 	return ""
+}
+
+func removeDuplicates(elements []Audio) []Audio {
+	encountered := map[Audio]bool{}
+	result := []Audio{}
+
+	for _, element := range elements {
+		if !encountered[element] {
+			encountered[element] = true
+			result = append(result, element)
+		}
+	}
+
+	return result
 }
