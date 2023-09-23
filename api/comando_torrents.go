@@ -200,47 +200,57 @@ func getTorrents(ctx context.Context, i *Indexer, link string) ([]IndexedTorrent
 		}
 	})
 
+	var chanIndexedTorrent = make(chan IndexedTorrent)
+
 	// for each magnet link, create a new indexed torrent
 	for _, magnetLink := range magnetLinks {
-		releaseTitle := extractReleaseName(magnetLink)
-		magnetAudio := []schema.Audio{}
-		if strings.Contains(strings.ToLower(releaseTitle), "dual") {
-			magnetAudio = append(magnetAudio, audio...)
-		} else if len(audio) > 1 {
-			// remove portuguese audio, and append to magnetAudio
-			for _, a := range audio {
-				if a != schema.AudioPortuguese {
-					magnetAudio = append(magnetAudio, a)
+		go func(magnetLink string) {
+			releaseTitle := extractReleaseName(magnetLink)
+			magnetAudio := []schema.Audio{}
+			if strings.Contains(strings.ToLower(releaseTitle), "dual") {
+				magnetAudio = append(magnetAudio, audio...)
+			} else if len(audio) > 1 {
+				// remove portuguese audio, and append to magnetAudio
+				for _, a := range audio {
+					if a != schema.AudioPortuguese {
+						magnetAudio = append(magnetAudio, a)
+					}
 				}
+			} else {
+				magnetAudio = append(magnetAudio, audio...)
 			}
-		} else {
-			magnetAudio = append(magnetAudio, audio...)
-		}
-		// decode url encoded title
-		releaseTitle, _ = url.QueryUnescape(releaseTitle)
+			// decode url encoded title
+			releaseTitle, _ = url.QueryUnescape(releaseTitle)
 
-		infoHash := extractInfoHash(magnetLink)
-		trackers := extractTrackers(magnetLink)
-		peer, seed, err := goscrape.GetLeechsAndSeeds(ctx, i.redis, infoHash, trackers)
-		if err != nil {
-			fmt.Println(err)
-		}
+			infoHash := extractInfoHash(magnetLink)
+			trackers := extractTrackers(magnetLink)
+			peer, seed, err := goscrape.GetLeechsAndSeeds(ctx, i.redis, infoHash, trackers)
+			if err != nil {
+				fmt.Println(err)
+			}
 
-		title := processTitle(title, magnetAudio)
+			title := processTitle(title, magnetAudio)
 
-		indexedTorrents = append(indexedTorrents, IndexedTorrent{
-			Title:         releaseTitle,
-			OriginalTitle: title,
-			Details:       link,
-			Year:          year,
-			Audio:         magnetAudio,
-			MagnetLink:    magnetLink,
-			Date:          date,
-			InfoHash:      infoHash,
-			Trackers:      trackers,
-			LeechCount:    peer,
-			SeedCount:     seed,
-		})
+			it := IndexedTorrent{
+				Title:         releaseTitle,
+				OriginalTitle: title,
+				Details:       link,
+				Year:          year,
+				Audio:         magnetAudio,
+				MagnetLink:    magnetLink,
+				Date:          date,
+				InfoHash:      infoHash,
+				Trackers:      trackers,
+				LeechCount:    peer,
+				SeedCount:     seed,
+			}
+			chanIndexedTorrent <- it
+		}(magnetLink)
+	}
+
+	for i := 0; i < len(magnetLinks); i++ {
+		it := <-chanIndexedTorrent
+		indexedTorrents = append(indexedTorrents, it)
 	}
 
 	return indexedTorrents, nil
