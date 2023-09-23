@@ -1,0 +1,26 @@
+version: '3.7'
+
+services:
+  torrent-indexer:
+    image:
+      build:
+        context: .
+        dockerfile: Dockerfile
+    container_name: torrent-indexer
+    restart: unless-stopped
+    ports:
+      - 8080:7006
+    networks:
+      - indexer
+    environment:
+      - REDIS_HOST=redis
+  
+  redis:
+    image: redis:alpine
+    container_name: redis
+    restart: unless-stopped
+    networks:
+      - indexer
+
+networks:
+  indexer:

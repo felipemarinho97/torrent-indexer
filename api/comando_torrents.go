@@ -1,8 +1,11 @@
-package indexers
+package handler
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -10,19 +13,13 @@ import (
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/felipemarinho97/torrent-indexer/schema"
+	goscrape "github.com/felipemarinho97/torrent-indexer/scrape"
 )
 
 const (
 	URL         = "https://comando.la/"
 	queryFilter = "?s="
-)
-
-type Audio string
-
-const (
-	AudioPortuguese = "Português"
-	AudioEnglish    = "Inglês"
-	AudioSpanish    = "Espanhol"
 )
 
 var replacer = strings.NewReplacer(
@@ -41,28 +38,30 @@ var replacer = strings.NewReplacer(
 )
 
 type IndexedTorrent struct {
-	Title         string    `json:"title"`
-	OriginalTitle string    `json:"original_title"`
-	Details       string    `json:"details"`
-	Year          string    `json:"year"`
-	Audio         []Audio   `json:"audio"`
-	MagnetLink    string    `json:"magnet_link"`
-	Date          time.Time `json:"date"`
-	InfoHash      string    `json:"info_hash"`
+	Title         string         `json:"title"`
+	OriginalTitle string         `json:"original_title"`
+	Details       string         `json:"details"`
+	Year          string         `json:"year"`
+	Audio         []schema.Audio `json:"audio"`
+	MagnetLink    string         `json:"magnet_link"`
+	Date          time.Time      `json:"date"`
+	InfoHash      string         `json:"info_hash"`
+	Trackers      []string       `json:"trackers"`
+	LeechCount    int            `json:"leech_count"`
+	SeedCount     int            `json:"seed_count"`
 }
 
-func HandlerComandoIndexer(w http.ResponseWriter, r *http.Request) {
+func (i *Indexer) HandlerComandoIndexer(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	// supported query params: q, season, episode
 	q := r.URL.Query().Get("q")
-	if q == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": "param q is required"})
-		return
-	}
 
 	// URL encode query param
 	q = url.QueryEscape(q)
-	url := URL + queryFilter + q
+	url := URL
+	if q != "" {
+		url = fmt.Sprintf("%s%s%s", URL, queryFilter, q)
+	}
 
 	fmt.Println("URL:>", url)
 	resp, err := http.Get(url)
@@ -92,7 +91,7 @@ func HandlerComandoIndexer(w http.ResponseWriter, r *http.Request) {
 	var indexedTorrents []IndexedTorrent
 	for _, link := range links {
 		go func(link string) {
-			torrents, err := getTorrents(link)
+			torrents, err := getTorrents(ctx, i, link)
 			if err != nil {
 				fmt.Println(err)
 				errChan <- err
@@ -114,15 +113,9 @@ func HandlerComandoIndexer(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(indexedTorrents)
 }
 
-func getTorrents(link string) ([]IndexedTorrent, error) {
+func getTorrents(ctx context.Context, i *Indexer, link string) ([]IndexedTorrent, error) {
 	var indexedTorrents []IndexedTorrent
-	resp, err := http.Get(link)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	doc, err := goquery.NewDocumentFromReader(resp.Body)
+	doc, err := getDocument(ctx, i, link)
 	if err != nil {
 		return nil, err
 	}
@@ -153,7 +146,7 @@ func getTorrents(link string) ([]IndexedTorrent, error) {
 		magnetLinks = append(magnetLinks, magnetLink)
 	})
 
-	var audio []Audio
+	var audio []schema.Audio
 	var year string
 	article.Find("div.entry-content > p").Each(func(i int, s *goquery.Selection) {
 		// pattern:
@@ -165,6 +158,7 @@ func getTorrents(link string) ([]IndexedTorrent, error) {
 		// Formato: MKV
 		// Qualidade: WEB-DL
 		// Áudio: Português | Inglês
+		// Idioma: Português | Inglês
 		// Legenda: Português
 		// Tamanho: –
 		// Qualidade de Áudio: 10
@@ -173,18 +167,19 @@ func getTorrents(link string) ([]IndexedTorrent, error) {
 		// Servidor: Torrent
 		text := s.Text()
 
-		re := regexp.MustCompile(`Áudio: (.*)`)
+		//re := regexp.MustCompile(`Áudio: (.*)`)
+		re := regexp.MustCompile(`(Áudio|Idioma): (.*)`)
 		audioMatch := re.FindStringSubmatch(text)
 		if len(audioMatch) > 0 {
-			langs_raw := strings.Split(audioMatch[1], "|")
+			sep := getSeparator(audioMatch[2])
+			langs_raw := strings.Split(audioMatch[2], sep)
 			for _, lang := range langs_raw {
 				lang = strings.TrimSpace(lang)
-				if lang == "Português" {
-					audio = append(audio, AudioPortuguese)
-				} else if lang == "Inglês" {
-					audio = append(audio, AudioEnglish)
-				} else if lang == "Espanhol" {
-					audio = append(audio, AudioSpanish)
+				a := schema.GetAudioFromString(lang)
+				if a != nil {
+					audio = append(audio, *a)
+				} else {
+					fmt.Println("unknown language:", lang)
 				}
 			}
 		}
@@ -208,25 +203,30 @@ func getTorrents(link string) ([]IndexedTorrent, error) {
 	// for each magnet link, create a new indexed torrent
 	for _, magnetLink := range magnetLinks {
 		releaseTitle := extractReleaseName(magnetLink)
-		magnetAudio := []Audio{}
+		magnetAudio := []schema.Audio{}
 		if strings.Contains(strings.ToLower(releaseTitle), "dual") {
-			magnetAudio = append(magnetAudio, AudioPortuguese)
 			magnetAudio = append(magnetAudio, audio...)
-		} else {
-			// filter portuguese audio from list
-			for _, lang := range audio {
-				if lang != AudioPortuguese {
-					magnetAudio = append(magnetAudio, lang)
+		} else if len(audio) > 1 {
+			// remove portuguese audio, and append to magnetAudio
+			for _, a := range audio {
+				if a != schema.AudioPortuguese {
+					magnetAudio = append(magnetAudio, a)
 				}
 			}
+		} else {
+			magnetAudio = append(magnetAudio, audio...)
 		}
-
-		// remove duplicates
-		magnetAudio = removeDuplicates(magnetAudio)
 		// decode url encoded title
 		releaseTitle, _ = url.QueryUnescape(releaseTitle)
 
 		infoHash := extractInfoHash(magnetLink)
+		trackers := extractTrackers(magnetLink)
+		peer, seed, err := goscrape.GetLeechsAndSeeds(ctx, i.redis, infoHash, trackers)
+		if err != nil {
+			fmt.Println(err)
+		}
+
+		title := processTitle(title, magnetAudio)
 
 		indexedTorrents = append(indexedTorrents, IndexedTorrent{
 			Title:         releaseTitle,
@@ -237,10 +237,73 @@ func getTorrents(link string) ([]IndexedTorrent, error) {
 			MagnetLink:    magnetLink,
 			Date:          date,
 			InfoHash:      infoHash,
+			Trackers:      trackers,
+			LeechCount:    peer,
+			SeedCount:     seed,
 		})
 	}
 
 	return indexedTorrents, nil
+}
+
+func processTitle(title string, a []schema.Audio) string {
+	// remove ' - Donwload' from title
+	title = strings.Replace(title, " - Download", "", -1)
+
+	// remove 'comando.la' from title
+	title = strings.Replace(title, "comando.la", "", -1)
+
+	// add audio ISO 639-2 code to title between ()
+	if len(a) > 0 {
+		audio := []string{}
+		for _, lang := range a {
+			audio = append(audio, lang.String())
+		}
+		title = fmt.Sprintf("%s (%s)", title, strings.Join(audio, ", "))
+	}
+
+	return title
+}
+
+func getSeparator(s string) string {
+	if strings.Contains(s, "|") {
+		return "|"
+	} else if strings.Contains(s, ",") {
+		return ","
+	}
+	return " "
+}
+
+func getDocument(ctx context.Context, i *Indexer, link string) (*goquery.Document, error) {
+	// try to get from redis first
+	docCache, err := i.redis.Get(ctx, link)
+	if err == nil {
+		return goquery.NewDocumentFromReader(ioutil.NopCloser(bytes.NewReader(docCache)))
+	}
+
+	resp, err := http.Get(link)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	// set cache
+	err = i.redis.Set(ctx, link, body)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	doc, err := goquery.NewDocumentFromReader(ioutil.NopCloser(bytes.NewReader(body)))
+	if err != nil {
+		return nil, err
+	}
+
+	return doc, nil
 }
 
 func extractReleaseName(magnetLink string) string {
@@ -261,16 +324,14 @@ func extractInfoHash(magnetLink string) string {
 	return ""
 }
 
-func removeDuplicates(elements []Audio) []Audio {
-	encountered := map[Audio]bool{}
-	result := []Audio{}
-
-	for _, element := range elements {
-		if !encountered[element] {
-			encountered[element] = true
-			result = append(result, element)
-		}
+func extractTrackers(magnetLink string) []string {
+	re := regexp.MustCompile(`tr=(.*?)&`)
+	matches := re.FindAllStringSubmatch(magnetLink, -1)
+	var trackers []string
+	for _, match := range matches {
+		// url decode
+		tracker, _ := url.QueryUnescape(match[1])
+		trackers = append(trackers, tracker)
 	}
-
-	return result
+	return trackers
 }
