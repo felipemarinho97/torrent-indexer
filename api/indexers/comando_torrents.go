@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/PuerkitoBio/goquery"
 )
@@ -24,13 +25,30 @@ const (
 	AudioSpanish    = "Espanhol"
 )
 
+var replacer = strings.NewReplacer(
+	"janeiro", "01",
+	"fevereiro", "02",
+	"março", "03",
+	"abril", "04",
+	"maio", "05",
+	"junho", "06",
+	"julho", "07",
+	"agosto", "08",
+	"setembro", "09",
+	"outubro", "10",
+	"novembro", "11",
+	"dezembro", "12",
+)
+
 type IndexedTorrent struct {
-	Title         string  `json:"title"`
-	OriginalTitle string  `json:"original_title"`
-	Details       string  `json:"details"`
-	Year          string  `json:"year"`
-	Audio         []Audio `json:"audio"`
-	MagnetLink    string  `json:"magnet_link"`
+	Title         string    `json:"title"`
+	OriginalTitle string    `json:"original_title"`
+	Details       string    `json:"details"`
+	Year          string    `json:"year"`
+	Audio         []Audio   `json:"audio"`
+	MagnetLink    string    `json:"magnet_link"`
+	Date          time.Time `json:"date"`
+	InfoHash      string    `json:"info_hash"`
 }
 
 func HandlerComandoIndexer(w http.ResponseWriter, r *http.Request) {
@@ -69,14 +87,27 @@ func HandlerComandoIndexer(w http.ResponseWriter, r *http.Request) {
 		links = append(links, link)
 	})
 
+	var itChan = make(chan []IndexedTorrent)
+	var errChan = make(chan error)
 	var indexedTorrents []IndexedTorrent
 	for _, link := range links {
-		torrents, err := getTorrents(link)
-		if err != nil {
+		go func(link string) {
+			torrents, err := getTorrents(link)
+			if err != nil {
+				fmt.Println(err)
+				errChan <- err
+			}
+			itChan <- torrents
+		}(link)
+	}
+
+	for i := 0; i < len(links); i++ {
+		select {
+		case torrents := <-itChan:
+			indexedTorrents = append(indexedTorrents, torrents...)
+		case err := <-errChan:
 			fmt.Println(err)
-			continue
 		}
-		indexedTorrents = append(indexedTorrents, torrents...)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -97,8 +128,24 @@ func getTorrents(link string) ([]IndexedTorrent, error) {
 	}
 
 	article := doc.Find("article")
-	title := article.Find(".entry-title").Text()
+	title := strings.Replace(article.Find(".entry-title").Text(), " - Download", "", -1)
 	textContent := article.Find("div.entry-content")
+	// div itemprop="datePublished"
+	datePublished := strings.TrimSpace(article.Find("div[itemprop=\"datePublished\"]").Text())
+	// pattern: 10 de setembro de 2021
+	re := regexp.MustCompile(`(\d{2}) de (\w+) de (\d{4})`)
+	matches := re.FindStringSubmatch(datePublished)
+	var date time.Time
+	if len(matches) > 0 {
+		day := matches[1]
+		month := matches[2]
+		year := matches[3]
+		datePublished = fmt.Sprintf("%s-%s-%s", year, replacer.Replace(month), day)
+		date, err = time.Parse("2006-01-02", datePublished)
+		if err != nil {
+			return nil, err
+		}
+	}
 	magnets := textContent.Find("a[href^=\"magnet\"]")
 	var magnetLinks []string
 	magnets.Each(func(i int, s *goquery.Selection) {
@@ -176,6 +223,10 @@ func getTorrents(link string) ([]IndexedTorrent, error) {
 
 		// remove duplicates
 		magnetAudio = removeDuplicates(magnetAudio)
+		// decode url encoded title
+		releaseTitle, _ = url.QueryUnescape(releaseTitle)
+
+		infoHash := extractInfoHash(magnetLink)
 
 		indexedTorrents = append(indexedTorrents, IndexedTorrent{
 			Title:         releaseTitle,
@@ -184,6 +235,8 @@ func getTorrents(link string) ([]IndexedTorrent, error) {
 			Year:          year,
 			Audio:         magnetAudio,
 			MagnetLink:    magnetLink,
+			Date:          date,
+			InfoHash:      infoHash,
 		})
 	}
 
@@ -192,6 +245,15 @@ func getTorrents(link string) ([]IndexedTorrent, error) {
 
 func extractReleaseName(magnetLink string) string {
 	re := regexp.MustCompile(`dn=(.*?)&`)
+	matches := re.FindStringSubmatch(magnetLink)
+	if len(matches) > 0 {
+		return matches[1]
+	}
+	return ""
+}
+
+func extractInfoHash(magnetLink string) string {
+	re := regexp.MustCompile(`btih:(.*?)&`)
 	matches := re.FindStringSubmatch(magnetLink)
 	if len(matches) > 0 {
 		return matches[1]
