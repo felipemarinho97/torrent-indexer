@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/felipemarinho97/torrent-indexer/magnet"
 	"github.com/felipemarinho97/torrent-indexer/schema"
 	goscrape "github.com/felipemarinho97/torrent-indexer/scrape"
 )
@@ -47,6 +48,7 @@ type IndexedTorrent struct {
 	Date          time.Time      `json:"date"`
 	InfoHash      string         `json:"info_hash"`
 	Trackers      []string       `json:"trackers"`
+	Size          string         `json:"size"`
 	LeechCount    int            `json:"leech_count"`
 	SeedCount     int            `json:"seed_count"`
 }
@@ -148,6 +150,7 @@ func getTorrents(ctx context.Context, i *Indexer, link string) ([]IndexedTorrent
 
 	var audio []schema.Audio
 	var year string
+	var size []string
 	article.Find("div.entry-content > p").Each(func(i int, s *goquery.Selection) {
 		// pattern:
 		// Título Traduzido: Fundação
@@ -167,45 +170,26 @@ func getTorrents(ctx context.Context, i *Indexer, link string) ([]IndexedTorrent
 		// Servidor: Torrent
 		text := s.Text()
 
-		//re := regexp.MustCompile(`Áudio: (.*)`)
-		re := regexp.MustCompile(`(Áudio|Idioma): (.*)`)
-		audioMatch := re.FindStringSubmatch(text)
-		if len(audioMatch) > 0 {
-			sep := getSeparator(audioMatch[2])
-			langs_raw := strings.Split(audioMatch[2], sep)
-			for _, lang := range langs_raw {
-				lang = strings.TrimSpace(lang)
-				a := schema.GetAudioFromString(lang)
-				if a != nil {
-					audio = append(audio, *a)
-				} else {
-					fmt.Println("unknown language:", lang)
-				}
-			}
-		}
-
-		re = regexp.MustCompile(`Lançamento: (.*)`)
-		yearMatch := re.FindStringSubmatch(text)
-		if len(yearMatch) > 0 {
-			year = yearMatch[1]
-		}
-
-		// if year is empty, try to get it from title
-		if year == "" {
-			re = regexp.MustCompile(`\((\d{4})\)`)
-			yearMatch := re.FindStringSubmatch(title)
-			if len(yearMatch) > 0 {
-				year = yearMatch[1]
-			}
-		}
+		audio = append(audio, findAudioFromText(text)...)
+		year = findYearFromText(text, title)
+		size = append(size, findSizesFromText(text)...)
 	})
+
+	size = stableUniq(size)
 
 	var chanIndexedTorrent = make(chan IndexedTorrent)
 
 	// for each magnet link, create a new indexed torrent
-	for _, magnetLink := range magnetLinks {
-		go func(magnetLink string) {
-			releaseTitle := extractReleaseName(magnetLink)
+	for it, magnetLink := range magnetLinks {
+		it := it
+		go func(it int, magnetLink string) {
+			magnet, err := magnet.ParseMagnetUri(magnetLink)
+			if err != nil {
+				fmt.Println(err)
+			}
+			releaseTitle := magnet.DisplayName
+			infoHash := magnet.InfoHash.String()
+			trackers := magnet.Trackers
 			magnetAudio := []schema.Audio{}
 			if strings.Contains(strings.ToLower(releaseTitle), "dual") {
 				magnetAudio = append(magnetAudio, audio...)
@@ -219,11 +203,7 @@ func getTorrents(ctx context.Context, i *Indexer, link string) ([]IndexedTorrent
 			} else {
 				magnetAudio = append(magnetAudio, audio...)
 			}
-			// decode url encoded title
-			releaseTitle, _ = url.QueryUnescape(releaseTitle)
 
-			infoHash := extractInfoHash(magnetLink)
-			trackers := extractTrackers(magnetLink)
 			peer, seed, err := goscrape.GetLeechsAndSeeds(ctx, i.redis, infoHash, trackers)
 			if err != nil {
 				fmt.Println(err)
@@ -231,8 +211,14 @@ func getTorrents(ctx context.Context, i *Indexer, link string) ([]IndexedTorrent
 
 			title := processTitle(title, magnetAudio)
 
-			it := IndexedTorrent{
-				Title:         releaseTitle,
+			// if the number of sizes is equal to the number of magnets, then assign the size to each indexed torrent in order
+			var mySize string
+			if len(size) == len(magnetLinks) {
+				mySize = size[it]
+			}
+
+			ixt := IndexedTorrent{
+				Title:         appendAudioISO639_2Code(releaseTitle, magnetAudio),
 				OriginalTitle: title,
 				Details:       link,
 				Year:          year,
@@ -243,9 +229,10 @@ func getTorrents(ctx context.Context, i *Indexer, link string) ([]IndexedTorrent
 				Trackers:      trackers,
 				LeechCount:    peer,
 				SeedCount:     seed,
+				Size:          mySize,
 			}
-			chanIndexedTorrent <- it
-		}(magnetLink)
+			chanIndexedTorrent <- ixt
+		}(it, magnetLink)
 	}
 
 	for i := 0; i < len(magnetLinks); i++ {
@@ -256,14 +243,102 @@ func getTorrents(ctx context.Context, i *Indexer, link string) ([]IndexedTorrent
 	return indexedTorrents, nil
 }
 
+func stableUniq(s []string) []string {
+	var uniq []map[string]interface{}
+	m := make(map[string]map[string]interface{})
+	for i, v := range s {
+		m[v] = map[string]interface{}{
+			"v": v,
+			"i": i,
+		}
+	}
+	// to order by index
+	for _, v := range m {
+		uniq = append(uniq, v)
+	}
+
+	// sort by index
+	for i := 0; i < len(uniq); i++ {
+		for j := i + 1; j < len(uniq); j++ {
+			if uniq[i]["i"].(int) > uniq[j]["i"].(int) {
+				uniq[i], uniq[j] = uniq[j], uniq[i]
+			}
+		}
+	}
+
+	// get only values
+	var uniqValues []string
+	for _, v := range uniq {
+		uniqValues = append(uniqValues, v["v"].(string))
+	}
+
+	return uniqValues
+}
+
+func findYearFromText(text string, title string) (year string) {
+	re := regexp.MustCompile(`Lançamento: (.*)`)
+	yearMatch := re.FindStringSubmatch(text)
+	if len(yearMatch) > 0 {
+		year = yearMatch[1]
+	}
+
+	if year == "" {
+		re = regexp.MustCompile(`\((\d{4})\)`)
+		yearMatch := re.FindStringSubmatch(title)
+		if len(yearMatch) > 0 {
+			year = yearMatch[1]
+		}
+	}
+	return year
+}
+
+func findAudioFromText(text string) []schema.Audio {
+	var audio []schema.Audio
+	re := regexp.MustCompile(`(.udio|Idioma):.?(.*)`)
+	audioMatch := re.FindStringSubmatch(text)
+	if len(audioMatch) > 0 {
+		sep := getSeparator(audioMatch[2])
+		langs_raw := strings.Split(audioMatch[2], sep)
+		for _, lang := range langs_raw {
+			lang = strings.TrimSpace(lang)
+			a := schema.GetAudioFromString(lang)
+			if a != nil {
+				audio = append(audio, *a)
+			} else {
+				fmt.Println("unknown language:", lang)
+			}
+		}
+	}
+	return audio
+}
+
+func findSizesFromText(text string) []string {
+	var sizes []string
+	// everything that ends with GB or MB, using ',' or '.' as decimal separator
+	re := regexp.MustCompile(`(\d+[\.,]?\d+) ?(GB|MB)`)
+	sizesMatch := re.FindAllStringSubmatch(text, -1)
+	if len(sizesMatch) > 0 {
+		for _, size := range sizesMatch {
+			sizes = append(sizes, size[0])
+		}
+	}
+	return sizes
+}
+
 func processTitle(title string, a []schema.Audio) string {
 	// remove ' - Donwload' from title
-	title = strings.Replace(title, " - Download", "", -1)
+	title = strings.Replace(title, " – Download", "", -1)
 
 	// remove 'comando.la' from title
 	title = strings.Replace(title, "comando.la", "", -1)
 
 	// add audio ISO 639-2 code to title between ()
+	title = appendAudioISO639_2Code(title, a)
+
+	return title
+}
+
+func appendAudioISO639_2Code(title string, a []schema.Audio) string {
 	if len(a) > 0 {
 		audio := []string{}
 		for _, lang := range a {
@@ -271,7 +346,6 @@ func processTitle(title string, a []schema.Audio) string {
 		}
 		title = fmt.Sprintf("%s (%s)", title, strings.Join(audio, ", "))
 	}
-
 	return title
 }
 
@@ -314,34 +388,4 @@ func getDocument(ctx context.Context, i *Indexer, link string) (*goquery.Documen
 	}
 
 	return doc, nil
-}
-
-func extractReleaseName(magnetLink string) string {
-	re := regexp.MustCompile(`dn=(.*?)&`)
-	matches := re.FindStringSubmatch(magnetLink)
-	if len(matches) > 0 {
-		return matches[1]
-	}
-	return ""
-}
-
-func extractInfoHash(magnetLink string) string {
-	re := regexp.MustCompile(`btih:(.*?)&`)
-	matches := re.FindStringSubmatch(magnetLink)
-	if len(matches) > 0 {
-		return matches[1]
-	}
-	return ""
-}
-
-func extractTrackers(magnetLink string) []string {
-	re := regexp.MustCompile(`tr=(.*?)&`)
-	matches := re.FindAllStringSubmatch(magnetLink, -1)
-	var trackers []string
-	for _, match := range matches {
-		// url decode
-		tracker, _ := url.QueryUnescape(match[1])
-		trackers = append(trackers, tracker)
-	}
-	return trackers
 }
