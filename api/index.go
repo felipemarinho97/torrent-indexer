@@ -6,10 +6,31 @@ import (
 	"time"
 
 	"github.com/felipemarinho97/torrent-indexer/cache"
+	"github.com/felipemarinho97/torrent-indexer/schema"
 )
 
 type Indexer struct {
 	redis *cache.Redis
+}
+
+type IndexerMeta struct {
+	URL       string
+	SearchURL string
+}
+
+type IndexedTorrent struct {
+	Title         string         `json:"title"`
+	OriginalTitle string         `json:"original_title"`
+	Details       string         `json:"details"`
+	Year          string         `json:"year"`
+	Audio         []schema.Audio `json:"audio"`
+	MagnetLink    string         `json:"magnet_link"`
+	Date          time.Time      `json:"date"`
+	InfoHash      string         `json:"info_hash"`
+	Trackers      []string       `json:"trackers"`
+	Size          string         `json:"size"`
+	LeechCount    int            `json:"leech_count"`
+	SeedCount     int            `json:"seed_count"`
 }
 
 func NewIndexers(redis *cache.Redis) *Indexer {
@@ -28,6 +49,13 @@ func HandlerIndex(w http.ResponseWriter, r *http.Request) {
 			"/indexers/comando_torrents": map[string]interface{}{
 				"method":      "GET",
 				"description": "Indexer for comando torrents",
+				"query_params": map[string]string{
+					"q": "search query",
+				},
+			},
+			"/indexers/bludv": map[string]interface{}{
+				"method":      "GET",
+				"description": "Indexer for bludv",
 				"query_params": map[string]string{
 					"q": "search query",
 				},

@@ -1,11 +1,9 @@
 package handler
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -18,36 +16,21 @@ import (
 	goscrape "github.com/felipemarinho97/torrent-indexer/scrape"
 )
 
-var comando = IndexerMeta{
-	URL:       "https://comando.la/",
+var bludv = IndexerMeta{
+	URL:       "https://bludvfilmes.tv/",
 	SearchURL: "?s=",
 }
 
-var replacer = strings.NewReplacer(
-	"janeiro", "01",
-	"fevereiro", "02",
-	"março", "03",
-	"abril", "04",
-	"maio", "05",
-	"junho", "06",
-	"julho", "07",
-	"agosto", "08",
-	"setembro", "09",
-	"outubro", "10",
-	"novembro", "11",
-	"dezembro", "12",
-)
-
-func (i *Indexer) HandlerComandoIndexer(w http.ResponseWriter, r *http.Request) {
+func (i *Indexer) HandlerBluDVIndexer(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	// supported query params: q, season, episode
 	q := r.URL.Query().Get("q")
 
 	// URL encode query param
 	q = url.QueryEscape(q)
-	url := comando.URL
+	url := bludv.URL
 	if q != "" {
-		url = fmt.Sprintf("%s%s%s", url, comando.SearchURL, q)
+		url = fmt.Sprintf("%s%s%s", url, bludv.SearchURL, q)
 	}
 
 	fmt.Println("URL:>", url)
@@ -67,9 +50,9 @@ func (i *Indexer) HandlerComandoIndexer(w http.ResponseWriter, r *http.Request) 
 	}
 
 	var links []string
-	doc.Find("article").Each(func(i int, s *goquery.Selection) {
+	doc.Find(".post").Each(func(i int, s *goquery.Selection) {
 		// get link from h2.entry-title > a
-		link, _ := s.Find("h2.entry-title > a").Attr("href")
+		link, _ := s.Find("div.title > a").Attr("href")
 		links = append(links, link)
 	})
 
@@ -78,7 +61,7 @@ func (i *Indexer) HandlerComandoIndexer(w http.ResponseWriter, r *http.Request) 
 	indexedTorrents := []IndexedTorrent{}
 	for _, link := range links {
 		go func(link string) {
-			torrents, err := getTorrents(ctx, i, link)
+			torrents, err := getTorrentsBluDV(ctx, i, link)
 			if err != nil {
 				fmt.Println(err)
 				errChan <- err
@@ -103,16 +86,16 @@ func (i *Indexer) HandlerComandoIndexer(w http.ResponseWriter, r *http.Request) 
 	json.NewEncoder(w).Encode(indexedTorrents)
 }
 
-func getTorrents(ctx context.Context, i *Indexer, link string) ([]IndexedTorrent, error) {
+func getTorrentsBluDV(ctx context.Context, i *Indexer, link string) ([]IndexedTorrent, error) {
 	var indexedTorrents []IndexedTorrent
 	doc, err := getDocument(ctx, i, link)
 	if err != nil {
 		return nil, err
 	}
 
-	article := doc.Find("article")
-	title := strings.Replace(article.Find(".entry-title").Text(), " - Download", "", -1)
-	textContent := article.Find("div.entry-content")
+	article := doc.Find(".post")
+	title := strings.Replace(article.Find(".title > h1").Text(), " - Download", "", -1)
+	textContent := article.Find("div.content")
 	// div itemprop="datePublished"
 	datePublished := strings.TrimSpace(article.Find("div[itemprop=\"datePublished\"]").Text())
 	// pattern: 10 de setembro de 2021
@@ -139,7 +122,7 @@ func getTorrents(ctx context.Context, i *Indexer, link string) ([]IndexedTorrent
 	var audio []schema.Audio
 	var year string
 	var size []string
-	article.Find("div.entry-content > p").Each(func(i int, s *goquery.Selection) {
+	article.Find("div.content p").Each(func(i int, s *goquery.Selection) {
 		// pattern:
 		// Título Traduzido: Fundação
 		// Título Original: Foundation
@@ -229,151 +212,4 @@ func getTorrents(ctx context.Context, i *Indexer, link string) ([]IndexedTorrent
 	}
 
 	return indexedTorrents, nil
-}
-
-func stableUniq(s []string) []string {
-	var uniq []map[string]interface{}
-	m := make(map[string]map[string]interface{})
-	for i, v := range s {
-		m[v] = map[string]interface{}{
-			"v": v,
-			"i": i,
-		}
-	}
-	// to order by index
-	for _, v := range m {
-		uniq = append(uniq, v)
-	}
-
-	// sort by index
-	for i := 0; i < len(uniq); i++ {
-		for j := i + 1; j < len(uniq); j++ {
-			if uniq[i]["i"].(int) > uniq[j]["i"].(int) {
-				uniq[i], uniq[j] = uniq[j], uniq[i]
-			}
-		}
-	}
-
-	// get only values
-	var uniqValues []string
-	for _, v := range uniq {
-		uniqValues = append(uniqValues, v["v"].(string))
-	}
-
-	return uniqValues
-}
-
-func findYearFromText(text string, title string) (year string) {
-	re := regexp.MustCompile(`Lançamento: (.*)`)
-	yearMatch := re.FindStringSubmatch(text)
-	if len(yearMatch) > 0 {
-		year = yearMatch[1]
-	}
-
-	if year == "" {
-		re = regexp.MustCompile(`\((\d{4})\)`)
-		yearMatch := re.FindStringSubmatch(title)
-		if len(yearMatch) > 0 {
-			year = yearMatch[1]
-		}
-	}
-	return year
-}
-
-func findAudioFromText(text string) []schema.Audio {
-	var audio []schema.Audio
-	re := regexp.MustCompile(`(.udio|Idioma):.?(.*)`)
-	audioMatch := re.FindStringSubmatch(text)
-	if len(audioMatch) > 0 {
-		sep := getSeparator(audioMatch[2])
-		langs_raw := strings.Split(audioMatch[2], sep)
-		for _, lang := range langs_raw {
-			lang = strings.TrimSpace(lang)
-			a := schema.GetAudioFromString(lang)
-			if a != nil {
-				audio = append(audio, *a)
-			} else {
-				fmt.Println("unknown language:", lang)
-			}
-		}
-	}
-	return audio
-}
-
-func findSizesFromText(text string) []string {
-	var sizes []string
-	// everything that ends with GB or MB, using ',' or '.' as decimal separator
-	re := regexp.MustCompile(`(\d+[\.,]?\d+) ?(GB|MB)`)
-	sizesMatch := re.FindAllStringSubmatch(text, -1)
-	if len(sizesMatch) > 0 {
-		for _, size := range sizesMatch {
-			sizes = append(sizes, size[0])
-		}
-	}
-	return sizes
-}
-
-func processTitle(title string, a []schema.Audio) string {
-	// remove ' - Donwload' from title
-	title = strings.Replace(title, " – Download", "", -1)
-
-	// remove 'comando.la' from title
-	title = strings.Replace(title, "comando.la", "", -1)
-
-	// add audio ISO 639-2 code to title between ()
-	title = appendAudioISO639_2Code(title, a)
-
-	return title
-}
-
-func appendAudioISO639_2Code(title string, a []schema.Audio) string {
-	if len(a) > 0 {
-		audio := []string{}
-		for _, lang := range a {
-			audio = append(audio, lang.String())
-		}
-		title = fmt.Sprintf("%s (%s)", title, strings.Join(audio, ", "))
-	}
-	return title
-}
-
-func getSeparator(s string) string {
-	if strings.Contains(s, "|") {
-		return "|"
-	} else if strings.Contains(s, ",") {
-		return ","
-	}
-	return " "
-}
-
-func getDocument(ctx context.Context, i *Indexer, link string) (*goquery.Document, error) {
-	// try to get from redis first
-	docCache, err := i.redis.Get(ctx, link)
-	if err == nil {
-		return goquery.NewDocumentFromReader(ioutil.NopCloser(bytes.NewReader(docCache)))
-	}
-
-	resp, err := http.Get(link)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	// set cache
-	err = i.redis.Set(ctx, link, body)
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	doc, err := goquery.NewDocumentFromReader(ioutil.NopCloser(bytes.NewReader(body)))
-	if err != nil {
-		return nil, err
-	}
-
-	return doc, nil
 }
