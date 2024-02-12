@@ -18,11 +18,17 @@ type IndexerMeta struct {
 	SearchURL string
 }
 
+type Response struct {
+	Results []IndexedTorrent `json:"results"`
+	Count   int              `json:"count"`
+}
+
 type IndexedTorrent struct {
 	Title         string         `json:"title"`
 	OriginalTitle string         `json:"original_title"`
 	Details       string         `json:"details"`
 	Year          string         `json:"year"`
+	IMDB          string         `json:"imdb"`
 	Audio         []schema.Audio `json:"audio"`
 	MagnetLink    string         `json:"magnet_link"`
 	Date          time.Time      `json:"date"`

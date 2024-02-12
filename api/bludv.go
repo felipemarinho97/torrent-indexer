@@ -80,10 +80,10 @@ func (i *Indexer) HandlerBluDVIndexer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	if len(indexedTorrents) == 0 {
-		w.WriteHeader(http.StatusNotFound)
-	}
-	json.NewEncoder(w).Encode(indexedTorrents)
+	json.NewEncoder(w).Encode(Response{
+		Results: indexedTorrents,
+		Count:   len(indexedTorrents),
+	})
 }
 
 func getTorrentsBluDV(ctx context.Context, i *Indexer, link string) ([]IndexedTorrent, error) {
@@ -146,6 +146,17 @@ func getTorrentsBluDV(ctx context.Context, i *Indexer, link string) ([]IndexedTo
 		size = append(size, findSizesFromText(text)...)
 	})
 
+	// find any link from imdb
+	imdbLink := ""
+	article.Find("div.content a").Each(func(i int, s *goquery.Selection) {
+		link, _ := s.Attr("href")
+		re := regexp.MustCompile(`https://www.imdb.com/title/(tt\d+)`)
+		matches := re.FindStringSubmatch(link)
+		if len(matches) > 0 {
+			imdbLink = matches[0]
+		}
+	})
+
 	size = stableUniq(size)
 
 	var chanIndexedTorrent = make(chan IndexedTorrent)
@@ -193,6 +204,7 @@ func getTorrentsBluDV(ctx context.Context, i *Indexer, link string) ([]IndexedTo
 				OriginalTitle: title,
 				Details:       link,
 				Year:          year,
+				IMDB:          imdbLink,
 				Audio:         magnetAudio,
 				MagnetLink:    magnetLink,
 				Date:          date,

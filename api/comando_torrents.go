@@ -97,10 +97,10 @@ func (i *Indexer) HandlerComandoIndexer(w http.ResponseWriter, r *http.Request) 
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	if len(indexedTorrents) == 0 {
-		w.WriteHeader(http.StatusNotFound)
-	}
-	json.NewEncoder(w).Encode(indexedTorrents)
+	json.NewEncoder(w).Encode(Response{
+		Results: indexedTorrents,
+		Count:   len(indexedTorrents),
+	})
 }
 
 func getTorrents(ctx context.Context, i *Indexer, link string) ([]IndexedTorrent, error) {
@@ -163,6 +163,17 @@ func getTorrents(ctx context.Context, i *Indexer, link string) ([]IndexedTorrent
 		size = append(size, findSizesFromText(text)...)
 	})
 
+	// find any link from imdb
+	imdbLink := ""
+	article.Find("div.content a").Each(func(i int, s *goquery.Selection) {
+		link, _ := s.Attr("href")
+		re := regexp.MustCompile(`https://www.imdb.com/title/(tt\d+)`)
+		matches := re.FindStringSubmatch(link)
+		if len(matches) > 0 {
+			imdbLink = matches[0]
+		}
+	})
+
 	size = stableUniq(size)
 
 	var chanIndexedTorrent = make(chan IndexedTorrent)
@@ -210,6 +221,7 @@ func getTorrents(ctx context.Context, i *Indexer, link string) ([]IndexedTorrent
 				OriginalTitle: title,
 				Details:       link,
 				Year:          year,
+				IMDB:          imdbLink,
 				Audio:         magnetAudio,
 				MagnetLink:    magnetLink,
 				Date:          date,
