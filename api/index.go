@@ -39,6 +39,7 @@ type IndexedTorrent struct {
 	Size          string         `json:"size"`
 	LeechCount    int            `json:"leech_count"`
 	SeedCount     int            `json:"seed_count"`
+	Similarity    float32        `json:"similarity"`
 }
 
 func NewIndexers(redis *cache.Redis, metrics *monitoring.Metrics) *Indexer {
@@ -59,14 +60,16 @@ func HandlerIndex(w http.ResponseWriter, r *http.Request) {
 				"method":      "GET",
 				"description": "Indexer for comando torrents",
 				"query_params": map[string]string{
-					"q": "search query",
+					"q":              "search query",
+					"filter_results": "if results with similarity equals to zero should be filtered (true/false)",
 				},
 			},
 			"/indexers/bludv": map[string]interface{}{
 				"method":      "GET",
 				"description": "Indexer for bludv",
 				"query_params": map[string]string{
-					"q": "search query",
+					"q":              "search query",
+					"filter_results": "if results with similarity equals to zero should be filtered (true/false)",
 				},
 			},
 		},

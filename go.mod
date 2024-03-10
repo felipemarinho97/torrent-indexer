@@ -19,5 +19,6 @@ require (
 
 require (
 	github.com/PuerkitoBio/goquery v1.9.1
+	github.com/hbollon/go-edlib v1.6.0
 	github.com/prometheus/client_golang v1.19.0
 )
