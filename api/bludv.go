@@ -96,22 +96,7 @@ func getTorrentsBluDV(ctx context.Context, i *Indexer, link string) ([]IndexedTo
 	article := doc.Find(".post")
 	title := strings.Replace(article.Find(".title > h1").Text(), " - Download", "", -1)
 	textContent := article.Find("div.content")
-	// div itemprop="datePublished"
-	datePublished := strings.TrimSpace(article.Find("div[itemprop=\"datePublished\"]").Text())
-	// pattern: 10 de setembro de 2021
-	re := regexp.MustCompile(`(\d{2}) de (\w+) de (\d{4})`)
-	matches := re.FindStringSubmatch(datePublished)
-	var date time.Time
-	if len(matches) > 0 {
-		day := matches[1]
-		month := matches[2]
-		year := matches[3]
-		datePublished = fmt.Sprintf("%s-%s-%s", year, replacer.Replace(month), day)
-		date, err = time.Parse("2006-01-02", datePublished)
-		if err != nil {
-			return nil, err
-		}
-	}
+	date := getPublishedDate(doc)
 	magnets := textContent.Find("a[href^=\"magnet\"]")
 	var magnetLinks []string
 	magnets.Each(func(i int, s *goquery.Selection) {
@@ -142,7 +127,10 @@ func getTorrentsBluDV(ctx context.Context, i *Indexer, link string) ([]IndexedTo
 		text := s.Text()
 
 		audio = append(audio, findAudioFromText(text)...)
-		year = findYearFromText(text, title)
+		y := findYearFromText(text, title)
+		if y != "" {
+			year = y
+		}
 		size = append(size, findSizesFromText(text)...)
 	})
 
@@ -224,4 +212,16 @@ func getTorrentsBluDV(ctx context.Context, i *Indexer, link string) ([]IndexedTo
 	}
 
 	return indexedTorrents, nil
+}
+
+func getPublishedDate(document *goquery.Document) time.Time {
+	var date time.Time
+	//<meta property="article:published_time" content="2019-08-23T13:20:57+00:00">
+	datePublished := strings.TrimSpace(document.Find("meta[property=\"article:published_time\"]").AttrOr("content", ""))
+
+	if datePublished != "" {
+		date, _ = time.Parse(time.RFC3339, datePublished)
+	}
+
+	return date
 }

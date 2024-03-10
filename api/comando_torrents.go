@@ -159,7 +159,10 @@ func getTorrents(ctx context.Context, i *Indexer, link string) ([]IndexedTorrent
 		text := s.Text()
 
 		audio = append(audio, findAudioFromText(text)...)
-		year = findYearFromText(text, title)
+		y := findYearFromText(text, title)
+		if y != "" {
+			year = y
+		}
 		size = append(size, findSizesFromText(text)...)
 	})
 
