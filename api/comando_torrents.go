@@ -198,7 +198,7 @@ func getTorrents(ctx context.Context, i *Indexer, link string) ([]IndexedTorrent
 
 	// find any link from imdb
 	imdbLink := ""
-	article.Find("div.content a").Each(func(i int, s *goquery.Selection) {
+	article.Find("a").Each(func(i int, s *goquery.Selection) {
 		link, _ := s.Attr("href")
 		re := regexp.MustCompile(`https://www.imdb.com/title/(tt\d+)`)
 		matches := re.FindStringSubmatch(link)
