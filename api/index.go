@@ -6,11 +6,13 @@ import (
 	"time"
 
 	"github.com/felipemarinho97/torrent-indexer/cache"
+	"github.com/felipemarinho97/torrent-indexer/monitoring"
 	"github.com/felipemarinho97/torrent-indexer/schema"
 )
 
 type Indexer struct {
-	redis *cache.Redis
+	redis   *cache.Redis
+	metrics *monitoring.Metrics
 }
 
 type IndexerMeta struct {
@@ -39,9 +41,10 @@ type IndexedTorrent struct {
 	SeedCount     int            `json:"seed_count"`
 }
 
-func NewIndexers(redis *cache.Redis) *Indexer {
+func NewIndexers(redis *cache.Redis, metrics *monitoring.Metrics) *Indexer {
 	return &Indexer{
-		redis: redis,
+		redis:   redis,
+		metrics: metrics,
 	}
 }
 
