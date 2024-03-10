@@ -286,9 +286,6 @@ func findYearFromText(text string, title string) (year string) {
 	}
 
 	if year == "" {
-		fmt.Println("DEBUG: year not found in text, trying to find in title")
-		fmt.Println("DEBUG: title:", title)
-		fmt.Println("DEBUG: text:", text)
 		re = regexp.MustCompile(`\((\d{4})\)`)
 		yearMatch := re.FindStringSubmatch(title)
 		if len(yearMatch) > 0 {
