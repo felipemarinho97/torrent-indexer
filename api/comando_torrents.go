@@ -115,7 +115,7 @@ func (i *Indexer) HandlerComandoIndexer(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// remove the ones with zero similarity
-	if len(indexedTorrents) > 20 && r.URL.Query().Get("filter_results") != "" {
+	if len(indexedTorrents) > 20 && r.URL.Query().Get("filter_results") != "" && r.URL.Query().Get("q") != "" {
 		indexedTorrents = utils.Filter(indexedTorrents, func(it IndexedTorrent) bool {
 			return it.Similarity > 0
 		})
