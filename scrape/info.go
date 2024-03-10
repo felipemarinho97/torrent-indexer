@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/felipemarinho97/torrent-indexer/cache"
+	"github.com/felipemarinho97/torrent-indexer/monitoring"
 )
 
 type peers struct {
@@ -44,11 +45,13 @@ func setPeersToCache(ctx context.Context, r *cache.Redis, infoHash string, peer,
 	return nil
 }
 
-func GetLeechsAndSeeds(ctx context.Context, r *cache.Redis, infoHash string, trackers []string) (int, int, error) {
+func GetLeechsAndSeeds(ctx context.Context, r *cache.Redis, m *monitoring.Metrics, infoHash string, trackers []string) (int, int, error) {
 	leech, seed, err := getPeersFromCache(ctx, r, infoHash)
 	if err != nil {
+		m.CacheHits.WithLabelValues("peers").Inc()
 		fmt.Println("unable to get peers from cache for infohash:", infoHash)
 	} else {
+		m.CacheMisses.WithLabelValues("peers").Inc()
 		fmt.Println("get from cache> leech:", leech, "seed:", seed)
 		return leech, seed, nil
 	}

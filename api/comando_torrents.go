@@ -39,6 +39,12 @@ var replacer = strings.NewReplacer(
 )
 
 func (i *Indexer) HandlerComandoIndexer(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+	defer func() {
+		i.metrics.IndexerDuration.WithLabelValues("comando").Observe(time.Since(start).Seconds())
+		i.metrics.IndexerRequests.WithLabelValues("comando").Inc()
+	}()
+
 	ctx := r.Context()
 	// supported query params: q, season, episode
 	q := r.URL.Query().Get("q")
@@ -55,6 +61,7 @@ func (i *Indexer) HandlerComandoIndexer(w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		i.metrics.IndexerErrors.WithLabelValues("comando").Inc()
 		return
 	}
 	defer resp.Body.Close()
@@ -63,6 +70,7 @@ func (i *Indexer) HandlerComandoIndexer(w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		i.metrics.IndexerErrors.WithLabelValues("comando").Inc()
 		return
 	}
 
@@ -206,7 +214,7 @@ func getTorrents(ctx context.Context, i *Indexer, link string) ([]IndexedTorrent
 				magnetAudio = append(magnetAudio, audio...)
 			}
 
-			peer, seed, err := goscrape.GetLeechsAndSeeds(ctx, i.redis, infoHash, trackers)
+			peer, seed, err := goscrape.GetLeechsAndSeeds(ctx, i.redis, i.metrics, infoHash, trackers)
 			if err != nil {
 				fmt.Println(err)
 			}
@@ -365,8 +373,10 @@ func getDocument(ctx context.Context, i *Indexer, link string) (*goquery.Documen
 	// try to get from redis first
 	docCache, err := i.redis.Get(ctx, link)
 	if err == nil {
+		i.metrics.CacheHits.WithLabelValues("document_body").Inc()
 		return goquery.NewDocumentFromReader(ioutil.NopCloser(bytes.NewReader(docCache)))
 	}
+	defer i.metrics.CacheMisses.WithLabelValues("document_body").Inc()
 
 	resp, err := http.Get(link)
 	if err != nil {

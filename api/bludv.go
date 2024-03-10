@@ -22,6 +22,12 @@ var bludv = IndexerMeta{
 }
 
 func (i *Indexer) HandlerBluDVIndexer(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+	defer func() {
+		i.metrics.IndexerDuration.WithLabelValues("bludv").Observe(time.Since(start).Seconds())
+		i.metrics.IndexerRequests.WithLabelValues("bludv").Inc()
+	}()
+
 	ctx := r.Context()
 	// supported query params: q, season, episode
 	q := r.URL.Query().Get("q")
@@ -38,6 +44,7 @@ func (i *Indexer) HandlerBluDVIndexer(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		i.metrics.IndexerErrors.WithLabelValues("bludv").Inc()
 		return
 	}
 	defer resp.Body.Close()
@@ -46,6 +53,7 @@ func (i *Indexer) HandlerBluDVIndexer(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		i.metrics.IndexerErrors.WithLabelValues("bludv").Inc()
 		return
 	}
 
@@ -174,7 +182,7 @@ func getTorrentsBluDV(ctx context.Context, i *Indexer, link string) ([]IndexedTo
 				magnetAudio = append(magnetAudio, audio...)
 			}
 
-			peer, seed, err := goscrape.GetLeechsAndSeeds(ctx, i.redis, infoHash, trackers)
+			peer, seed, err := goscrape.GetLeechsAndSeeds(ctx, i.redis, i.metrics, infoHash, trackers)
 			if err != nil {
 				fmt.Println(err)
 			}
