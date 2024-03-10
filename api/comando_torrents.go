@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -16,6 +17,8 @@ import (
 	"github.com/felipemarinho97/torrent-indexer/magnet"
 	"github.com/felipemarinho97/torrent-indexer/schema"
 	goscrape "github.com/felipemarinho97/torrent-indexer/scrape"
+	"github.com/felipemarinho97/torrent-indexer/utils"
+	"github.com/hbollon/go-edlib"
 )
 
 var comando = IndexerMeta{
@@ -103,6 +106,25 @@ func (i *Indexer) HandlerComandoIndexer(w http.ResponseWriter, r *http.Request) 
 			fmt.Println(err)
 		}
 	}
+
+	for i, it := range indexedTorrents {
+		jLower := strings.ReplaceAll(strings.ToLower(fmt.Sprintf("%s %s", it.Title, it.OriginalTitle)), ".", " ")
+		qLower := strings.ToLower(q)
+		splitLength := 2
+		indexedTorrents[i].Similarity = edlib.JaccardSimilarity(jLower, qLower, splitLength)
+	}
+
+	// remove the ones with zero similarity
+	if len(indexedTorrents) > 20 && r.URL.Query().Get("filter_results") != "" {
+		indexedTorrents = utils.Filter(indexedTorrents, func(it IndexedTorrent) bool {
+			return it.Similarity > 0
+		})
+	}
+
+	// sort by similarity
+	slices.SortFunc(indexedTorrents, func(i, j IndexedTorrent) int {
+		return int((j.Similarity - i.Similarity) * 1000)
+	})
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(Response{
