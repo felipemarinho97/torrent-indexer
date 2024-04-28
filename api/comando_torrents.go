@@ -5,7 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -63,7 +63,10 @@ func (i *Indexer) HandlerComandoIndexer(w http.ResponseWriter, r *http.Request) 
 	resp, err := http.Get(url)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		err = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		if err != nil {
+			fmt.Println(err)
+		}
 		i.metrics.IndexerErrors.WithLabelValues("comando").Inc()
 		return
 	}
@@ -72,7 +75,10 @@ func (i *Indexer) HandlerComandoIndexer(w http.ResponseWriter, r *http.Request) 
 	doc, err := goquery.NewDocumentFromReader(resp.Body)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		err = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		if err != nil {
+			fmt.Println(err)
+		}
 		i.metrics.IndexerErrors.WithLabelValues("comando").Inc()
 		return
 	}
@@ -127,10 +133,13 @@ func (i *Indexer) HandlerComandoIndexer(w http.ResponseWriter, r *http.Request) 
 	})
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(Response{
+	err = json.NewEncoder(w).Encode(Response{
 		Results: indexedTorrents,
 		Count:   len(indexedTorrents),
 	})
+	if err != nil {
+		fmt.Println(err)
+	}
 }
 
 func getTorrents(ctx context.Context, i *Indexer, link string) ([]IndexedTorrent, error) {
@@ -396,7 +405,7 @@ func getDocument(ctx context.Context, i *Indexer, link string) (*goquery.Documen
 	docCache, err := i.redis.Get(ctx, link)
 	if err == nil {
 		i.metrics.CacheHits.WithLabelValues("document_body").Inc()
-		return goquery.NewDocumentFromReader(ioutil.NopCloser(bytes.NewReader(docCache)))
+		return goquery.NewDocumentFromReader(io.NopCloser(bytes.NewReader(docCache)))
 	}
 	defer i.metrics.CacheMisses.WithLabelValues("document_body").Inc()
 
@@ -406,7 +415,7 @@ func getDocument(ctx context.Context, i *Indexer, link string) (*goquery.Documen
 	}
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -417,7 +426,7 @@ func getDocument(ctx context.Context, i *Indexer, link string) (*goquery.Documen
 		fmt.Println(err)
 	}
 
-	doc, err := goquery.NewDocumentFromReader(ioutil.NopCloser(bytes.NewReader(body)))
+	doc, err := goquery.NewDocumentFromReader(io.NopCloser(bytes.NewReader(body)))
 	if err != nil {
 		return nil, err
 	}
