@@ -1,6 +1,6 @@
 module github.com/felipemarinho97/torrent-indexer
 
-go 1.21
+go 1.22
 
 require github.com/redis/go-redis/v9 v9.5.1
 
