@@ -88,7 +88,10 @@ func GetLeechsAndSeeds(ctx context.Context, r *cache.Redis, m *monitoring.Metric
 	for i := 0; i < len(trackers); i++ {
 		select {
 		case peer = <-peerChan:
-			setPeersToCache(ctx, r, infoHash, peer.Leechers, peer.Seeders)
+			err = setPeersToCache(ctx, r, infoHash, peer.Leechers, peer.Seeders)
+			if err != nil {
+				fmt.Println(err)
+			}
 			return peer.Leechers, peer.Seeders, nil
 		case err := <-errChan:
 			fmt.Println(err)

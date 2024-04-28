@@ -1,0 +1,133 @@
+# GoReleaser config
+project_name: torrent-indexer
+
+builds:
+  - id: torrentindexer_linux_amd64
+    env:
+      - CGO_ENABLED=1
+    goos:
+      - linux
+    goarch:
+      - amd64
+    flags:
+      - -tags=netgo
+    ldflags:
+      - "-extldflags '-static -lz'"
+      - -s -w -X github.com/felipemarinho97/torrent-indexer/consts.gitSha={{.ShortCommit}} -X github.com/felipemarinho97/torrent-indexer/consts.gitTag={{.Version}}
+
+  - id: torrentindexer_linux_386
+    env:
+      - CGO_ENABLED=1
+      - PKG_CONFIG_PATH=/i386/lib/pkgconfig
+    goos:
+      - linux
+    goarch:
+      - "386"
+    flags:
+      - -tags=netgo
+    ldflags:
+      - "-extldflags '-static'"
+      - -s -w -X github.com/felipemarinho97/torrent-indexer/consts.gitSha={{.ShortCommit}} -X github.com/felipemarinho97/torrent-indexer/consts.gitTag={{.Version}}
+
+  - id: torrentindexer_linux_arm
+    env:
+      - CGO_ENABLED=1
+      - CC=arm-linux-gnueabi-gcc
+      - CXX=arm-linux-gnueabi-g++
+      - PKG_CONFIG_PATH=/arm/lib/pkgconfig
+    goos:
+      - linux
+    goarch:
+      - arm
+    goarm:
+      - "5"
+      - "6"
+      - "7"
+    flags:
+      - -tags=netgo
+    ldflags:
+      - "-extldflags '-static'"
+      - -s -w -X github.com/felipemarinho97/torrent-indexer/consts.gitSha={{.ShortCommit}} -X github.com/felipemarinho97/torrent-indexer/consts.gitTag={{.Version}}
+
+  - id: torrentindexer_linux_arm64
+    env:
+      - CGO_ENABLED=1
+      - CC=aarch64-linux-gnu-gcc
+      - CXX=aarch64-linux-gnu-g++
+      - PKG_CONFIG_PATH=/arm64/lib/pkgconfig
+    goos:
+      - linux
+    goarch:
+      - arm64
+    flags:
+      - -tags=netgo
+    ldflags:
+      - "-extldflags '-static'"
+      - -s -w -X github.com/felipemarinho97/torrent-indexer/consts.gitSha={{.ShortCommit}} -X github.com/felipemarinho97/torrent-indexer/consts.gitTag={{.Version}}
+
+  - id: torrentindexer_windows_386
+    env:
+      - CGO_ENABLED=1
+      - CC=i686-w64-mingw32-gcc
+      - CXX=i686-w64-mingw32-g++
+      - PKG_CONFIG_PATH=/mingw32/lib/pkgconfig
+    goos:
+      - windows
+    goarch:
+      - "386"
+    flags:
+      - -tags=netgo
+    ldflags:
+      - "-extldflags '-static'"
+      - -s -w -X github.com/felipemarinho97/torrent-indexer/consts.gitSha={{.ShortCommit}} -X github.com/felipemarinho97/torrent-indexer/consts.gitTag={{.Version}}
+
+  - id: torrentindexer_windows_amd64
+    env:
+      - CGO_ENABLED=1
+      - CC=x86_64-w64-mingw32-gcc
+      - CXX=x86_64-w64-mingw32-g++
+      - PKG_CONFIG_PATH=/mingw64/lib/pkgconfig
+    goos:
+      - windows
+    goarch:
+      - amd64
+    flags:
+      - -tags=netgo
+    ldflags:
+      - "-extldflags '-static'"
+      - -s -w -X github.com/felipemarinho97/torrent-indexer/consts.gitSha={{.ShortCommit}} -X github.com/felipemarinho97/torrent-indexer/consts.gitTag={{.Version}}
+
+  - id: torrentindexer_darwin_amd64
+    env:
+      - CGO_ENABLED=1
+      - CC=o64-clang
+      - CXX=o64-clang++
+      - PKG_CONFIG_PATH=/darwin/lib/pkgconfig
+    goos:
+      - darwin
+    goarch:
+      - amd64
+    flags:
+      - -tags=netgo
+    ldflags:
+      - -s -w -X github.com/felipemarinho97/torrent-indexer/consts.gitSha={{.ShortCommit}} -X github.com/felipemarinho97/torrent-indexer/consts.gitTag={{.Version}}
+
+archives:
+  - format_overrides:
+      - goos: windows
+        format: zip
+
+checksum:
+  name_template: "{{ .ProjectName }}_checksums.txt"
+
+snapshot:
+  name_template: "{{ .Tag }}-SNAPSHOT"
+
+release:
+  draft: true
+
+changelog:
+  # sort: asc
+  filters:
+    exclude:
+      - "^docs:"

@@ -53,7 +53,7 @@ func HandlerIndex(w http.ResponseWriter, r *http.Request) {
 	currentTime := time.Now().Format(time.RFC850)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"time": currentTime,
 		"endpoints": map[string]interface{}{
 			"/indexers/comando_torrents": map[string]interface{}{
@@ -74,4 +74,7 @@ func HandlerIndex(w http.ResponseWriter, r *http.Request) {
 			},
 		},
 	})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }

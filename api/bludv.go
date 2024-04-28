@@ -47,7 +47,10 @@ func (i *Indexer) HandlerBluDVIndexer(w http.ResponseWriter, r *http.Request) {
 	resp, err := http.Get(url)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		err = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		if err != nil {
+			fmt.Println(err)
+		}
 		i.metrics.IndexerErrors.WithLabelValues("bludv").Inc()
 		return
 	}
@@ -56,7 +59,11 @@ func (i *Indexer) HandlerBluDVIndexer(w http.ResponseWriter, r *http.Request) {
 	doc, err := goquery.NewDocumentFromReader(resp.Body)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		err = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		if err != nil {
+			fmt.Println(err)
+		}
+
 		i.metrics.IndexerErrors.WithLabelValues("bludv").Inc()
 		return
 	}
@@ -111,10 +118,13 @@ func (i *Indexer) HandlerBluDVIndexer(w http.ResponseWriter, r *http.Request) {
 	})
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(Response{
+	err = json.NewEncoder(w).Encode(Response{
 		Results: indexedTorrents,
 		Count:   len(indexedTorrents),
 	})
+	if err != nil {
+		fmt.Println(err)
+	}
 }
 
 func getTorrentsBluDV(ctx context.Context, i *Indexer, link string) ([]IndexedTorrent, error) {
