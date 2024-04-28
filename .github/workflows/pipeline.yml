@@ -2,12 +2,12 @@ name: "Pipeline: Test, Lint, Build"
 on:
   push:
     branches:
-      - develop
+      - main
     tags:
       - "v*"
   pull_request:
     branches:
-      - develop
+      - main
 
 jobs:
   go-lint:
