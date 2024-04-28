@@ -60,7 +60,7 @@ jobs:
     name: Build binaries
     needs: [go, go-lint]
     runs-on: ubuntu-latest
-    container: goreleaser/goreleaser:1.22
+    container: goreleaser/goreleaser:v1.25.1
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
