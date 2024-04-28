@@ -1,11 +1,8 @@
-version: '3.7'
+version: '3'
 
 services:
   torrent-indexer:
-    image:
-      build:
-        context: .
-        dockerfile: Dockerfile
+    image: felipemarinho97/torrent-indexer:latest
     container_name: torrent-indexer
     restart: unless-stopped
     ports:
