@@ -1,3 +1,4 @@
-run:
-  skip-files:
+issues:
+  exclude-files:
     - scrape.go
+    - infohash.go
