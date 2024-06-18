@@ -21,6 +21,7 @@ func main() {
 	indexerMux.HandleFunc("/", handler.HandlerIndex)
 	indexerMux.HandleFunc("/indexers/comando_torrents", indexers.HandlerComandoIndexer)
 	indexerMux.HandleFunc("/indexers/bludv", indexers.HandlerBluDVIndexer)
+	indexerMux.HandleFunc("/indexers/manual", indexers.HandlerManualIndexer)
 
 	metricsMux.Handle("/metrics", promhttp.Handler())
 
