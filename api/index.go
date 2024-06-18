@@ -56,20 +56,35 @@ func HandlerIndex(w http.ResponseWriter, r *http.Request) {
 	err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"time": currentTime,
 		"endpoints": map[string]interface{}{
-			"/indexers/comando_torrents": map[string]interface{}{
-				"method":      "GET",
-				"description": "Indexer for comando torrents",
-				"query_params": map[string]string{
-					"q":              "search query",
-					"filter_results": "if results with similarity equals to zero should be filtered (true/false)",
+			"/indexers/comando_torrents": []map[string]interface{}{
+				{
+					"method":      "GET",
+					"description": "Indexer for comando torrents",
+					"query_params": map[string]string{
+						"q":              "search query",
+						"filter_results": "if results with similarity equals to zero should be filtered (true/false)",
+					},
 				},
 			},
-			"/indexers/bludv": map[string]interface{}{
-				"method":      "GET",
-				"description": "Indexer for bludv",
-				"query_params": map[string]string{
-					"q":              "search query",
-					"filter_results": "if results with similarity equals to zero should be filtered (true/false)",
+			"/indexers/bludv": []map[string]interface{}{
+				{
+					"method":      "GET",
+					"description": "Indexer for bludv",
+					"query_params": map[string]string{
+						"q":              "search query",
+						"filter_results": "if results with similarity equals to zero should be filtered (true/false)",
+					}},
+			},
+			"/indexers/manual": []map[string]interface{}{
+				{
+					"method":      "POST",
+					"description": "Add a manual torrent entry to the indexer for 12 hours",
+					"body": map[string]interface{}{
+						"magnetLink": "magnet link",
+					}},
+				{
+					"method":      "GET",
+					"description": "Get all manual torrents",
 				},
 			},
 		},
