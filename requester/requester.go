@@ -73,8 +73,8 @@ func (i *Requster) GetDocument(ctx context.Context, url string) (io.ReadCloser, 
 		fmt.Printf("request served from plain client: %s\n", url)
 	}
 
-	// save response to cache if it's not a challange
-	if !hasChallange(bodyByte) {
+	// save response to cache if it's not a challange and body is not empty
+	if !hasChallange(bodyByte) && len(bodyByte) > 0 {
 		err = i.c.SetWithExpiration(ctx, key, bodyByte, shortLivedCacheExpiration)
 		if err != nil {
 			fmt.Printf("failed to save response to cache: %v\n", err)

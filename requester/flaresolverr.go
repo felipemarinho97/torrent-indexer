@@ -7,20 +7,57 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 )
 
 type FlareSolverr struct {
-	url        string
-	maxTimeout int
-	httpClient *http.Client
+	url         string
+	maxTimeout  int
+	httpClient  *http.Client
+	sessionPool chan string
+	mu          sync.Mutex
 }
 
 func NewFlareSolverr(url string, timeoutMilli int) *FlareSolverr {
+	poolSize := 5
 	httpClient := &http.Client{}
-	return &FlareSolverr{url: url, maxTimeout: timeoutMilli, httpClient: httpClient}
+	sessionPool := make(chan string, poolSize) // Pool size of 5 sessions
+
+	f := &FlareSolverr{
+		url:         url,
+		maxTimeout:  timeoutMilli,
+		httpClient:  httpClient,
+		sessionPool: sessionPool,
+	}
+
+	// Pre-initialize the pool with existing sessions
+	sessions, err := f.ListSessions()
+	if err != nil {
+		fmt.Println("Failed to list existing FlareSolverr sessions:", err)
+	} else {
+		for _, session := range sessions {
+			// Add available sessions to the pool
+			if len(f.sessionPool) < cap(f.sessionPool) {
+				f.sessionPool <- session
+			}
+		}
+		if len(f.sessionPool) > 0 {
+			fmt.Printf("Added %d FlareSolverr sessions to the pool\n", len(f.sessionPool))
+		}
+	}
+
+	// If fewer than poolSize sessions were found, create new ones to fill the pool
+	for len(f.sessionPool) < cap(f.sessionPool) {
+		f.CreateSession()
+	}
+
+	return f
 }
 
 func (f *FlareSolverr) CreateSession() string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
 	body := map[string]string{"cmd": "sessions.create"}
 	jsonBody, err := json.Marshal(body)
 	if err != nil {
@@ -47,7 +84,12 @@ func (f *FlareSolverr) CreateSession() string {
 		return ""
 	}
 
-	return sessionResponse["session"].(string)
+	session := sessionResponse["session"].(string)
+	// Add session to the pool
+	f.sessionPool <- session
+
+	fmt.Println("Created new FlareSolverr session:", session)
+	return session
 }
 
 func (f *FlareSolverr) ListSessions() ([]string, error) {
@@ -87,17 +129,9 @@ func (f *FlareSolverr) ListSessions() ([]string, error) {
 }
 
 func (f *FlareSolverr) RetrieveSession() string {
-	sessions, err := f.ListSessions()
-	if err != nil {
-		return ""
-	}
-
-	if len(sessions) == 0 {
-		fmt.Println("No sessions found, creating a new one")
-		return f.CreateSession()
-	}
-
-	return sessions[0]
+	// Blocking receive from the session pool.
+	session := <-f.sessionPool
+	return session
 }
 
 type Response struct {
@@ -124,7 +158,17 @@ type Response struct {
 
 func (f *FlareSolverr) Get(url string) (io.ReadCloser, error) {
 	session := f.RetrieveSession()
-	body := map[string]string{"cmd": "request.get", "url": url, "maxTimeout": fmt.Sprintf("%d", f.maxTimeout), "session": session}
+	// return the session to the pool once the request is finished
+	defer func() {
+		f.sessionPool <- session
+	}()
+
+	body := map[string]string{
+		"cmd":        "request.get",
+		"url":        url,
+		"maxTimeout": fmt.Sprintf("%d", f.maxTimeout),
+		"session":    session,
+	}
 	jsonBody, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
