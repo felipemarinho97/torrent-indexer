@@ -11,6 +11,7 @@ services:
       - indexer
     environment:
       - REDIS_HOST=redis
+      - FLARESOLVERR_ADDRESS=http://flaresolverr:8191
   
   redis:
     image: redis:alpine
