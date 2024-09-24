@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	DefaultExpiration      = 24 * time.Hour * 180 // 180 days
+	DefaultExpiration      = 24 * time.Hour * 7 // 7 days
 	IndexerComandoTorrents = "indexer:comando_torrents"
 )
 

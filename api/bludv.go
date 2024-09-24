@@ -44,7 +44,7 @@ func (i *Indexer) HandlerBluDVIndexer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fmt.Println("URL:>", url)
-	resp, err := http.Get(url)
+	resp, err := i.requester.GetDocument(ctx, url)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		err = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
@@ -54,9 +54,9 @@ func (i *Indexer) HandlerBluDVIndexer(w http.ResponseWriter, r *http.Request) {
 		i.metrics.IndexerErrors.WithLabelValues("bludv").Inc()
 		return
 	}
-	defer resp.Body.Close()
+	defer resp.Close()
 
-	doc, err := goquery.NewDocumentFromReader(resp.Body)
+	doc, err := goquery.NewDocumentFromReader(resp)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		err = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})

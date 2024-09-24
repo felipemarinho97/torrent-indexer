@@ -52,7 +52,7 @@ func GetLeechsAndSeeds(ctx context.Context, r *cache.Redis, m *monitoring.Metric
 		fmt.Println("unable to get peers from cache for infohash:", infoHash)
 	} else {
 		m.CacheMisses.WithLabelValues("peers").Inc()
-		fmt.Println("get from cache> leech:", leech, "seed:", seed)
+		fmt.Println("hash:", infoHash, "get from cache -> leech:", leech, "seed:", seed)
 		return leech, seed, nil
 	}
 
@@ -87,16 +87,18 @@ func GetLeechsAndSeeds(ctx context.Context, r *cache.Redis, m *monitoring.Metric
 	var peer peers
 	for i := 0; i < len(trackers); i++ {
 		select {
+		case <-errChan:
+			// discard error
 		case peer = <-peerChan:
 			err = setPeersToCache(ctx, r, infoHash, peer.Leechers, peer.Seeders)
 			if err != nil {
 				fmt.Println(err)
+			} else {
+				fmt.Println("hash:", infoHash, "get from tracker -> leech:", peer.Leechers, "seed:", peer.Seeders)
 			}
 			return peer.Leechers, peer.Seeders, nil
-		case err := <-errChan:
-			fmt.Println(err)
 		}
 	}
 
-	return 0, 0, fmt.Errorf("unable to get peers from trackers")
+	return 0, 0, fmt.Errorf("unable to get peers from trackers for infohash: %s", infoHash)
 }

@@ -60,7 +60,7 @@ func (i *Indexer) HandlerComandoIndexer(w http.ResponseWriter, r *http.Request) 
 	}
 
 	fmt.Println("URL:>", url)
-	resp, err := http.Get(url)
+	resp, err := i.requester.GetDocument(ctx, url)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		err = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
@@ -70,9 +70,9 @@ func (i *Indexer) HandlerComandoIndexer(w http.ResponseWriter, r *http.Request) 
 		i.metrics.IndexerErrors.WithLabelValues("comando").Inc()
 		return
 	}
-	defer resp.Body.Close()
+	defer resp.Close()
 
-	doc, err := goquery.NewDocumentFromReader(resp.Body)
+	doc, err := goquery.NewDocumentFromReader(resp)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		err = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
@@ -405,17 +405,18 @@ func getDocument(ctx context.Context, i *Indexer, link string) (*goquery.Documen
 	docCache, err := i.redis.Get(ctx, link)
 	if err == nil {
 		i.metrics.CacheHits.WithLabelValues("document_body").Inc()
+		fmt.Printf("returning from long-lived cache: %s\n", link)
 		return goquery.NewDocumentFromReader(io.NopCloser(bytes.NewReader(docCache)))
 	}
 	defer i.metrics.CacheMisses.WithLabelValues("document_body").Inc()
 
-	resp, err := http.Get(link)
+	resp, err := i.requester.GetDocument(ctx, link)
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer resp.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp)
 	if err != nil {
 		return nil, err
 	}

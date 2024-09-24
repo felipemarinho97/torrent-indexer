@@ -7,12 +7,14 @@ import (
 
 	"github.com/felipemarinho97/torrent-indexer/cache"
 	"github.com/felipemarinho97/torrent-indexer/monitoring"
+	"github.com/felipemarinho97/torrent-indexer/requester"
 	"github.com/felipemarinho97/torrent-indexer/schema"
 )
 
 type Indexer struct {
-	redis   *cache.Redis
-	metrics *monitoring.Metrics
+	redis     *cache.Redis
+	metrics   *monitoring.Metrics
+	requester *requester.Requster
 }
 
 type IndexerMeta struct {
@@ -42,10 +44,11 @@ type IndexedTorrent struct {
 	Similarity    float32        `json:"similarity"`
 }
 
-func NewIndexers(redis *cache.Redis, metrics *monitoring.Metrics) *Indexer {
+func NewIndexers(redis *cache.Redis, metrics *monitoring.Metrics, req *requester.Requster) *Indexer {
 	return &Indexer{
-		redis:   redis,
-		metrics: metrics,
+		redis:     redis,
+		metrics:   metrics,
+		requester: req,
 	}
 }
 
