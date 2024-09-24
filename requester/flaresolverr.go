@@ -16,6 +16,7 @@ type FlareSolverr struct {
 	httpClient  *http.Client
 	sessionPool chan string
 	mu          sync.Mutex
+	initiated   bool
 }
 
 func NewFlareSolverr(url string, timeoutMilli int) *FlareSolverr {
@@ -30,21 +31,25 @@ func NewFlareSolverr(url string, timeoutMilli int) *FlareSolverr {
 		sessionPool: sessionPool,
 	}
 
-	f.FillSessionPool()
+	err := f.FillSessionPool()
+	if err == nil {
+		f.initiated = true
+	}
 
 	return f
 }
 
-func (f *FlareSolverr) FillSessionPool() {
+func (f *FlareSolverr) FillSessionPool() error {
 	// Check if the pool is already filled
 	if len(f.sessionPool) == cap(f.sessionPool) {
-		return
+		return nil
 	}
 
 	// Pre-initialize the pool with existing sessions
 	sessions, err := f.ListSessions()
 	if err != nil {
 		fmt.Println("Failed to list existing FlareSolverr sessions:", err)
+		return err
 	} else {
 		for _, session := range sessions {
 			// Add available sessions to the pool
@@ -61,6 +66,8 @@ func (f *FlareSolverr) FillSessionPool() {
 	for len(f.sessionPool) < cap(f.sessionPool) {
 		f.CreateSession()
 	}
+
+	return nil
 }
 
 func (f *FlareSolverr) CreateSession() string {
@@ -166,6 +173,11 @@ type Response struct {
 }
 
 func (f *FlareSolverr) Get(url string) (io.ReadCloser, error) {
+	// Check if the FlareSolverr instance was initiated
+	if !f.initiated {
+		return io.NopCloser(bytes.NewReader([]byte(""))), nil
+	}
+
 	// Retrieve session from the pool (blocking if no sessions available)
 	session := f.RetrieveSession()
 
