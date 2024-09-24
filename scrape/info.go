@@ -87,6 +87,8 @@ func GetLeechsAndSeeds(ctx context.Context, r *cache.Redis, m *monitoring.Metric
 	var peer peers
 	for i := 0; i < len(trackers); i++ {
 		select {
+		case <-errChan:
+			// discard error
 		case peer = <-peerChan:
 			err = setPeersToCache(ctx, r, infoHash, peer.Leechers, peer.Seeders)
 			if err != nil {
@@ -98,5 +100,5 @@ func GetLeechsAndSeeds(ctx context.Context, r *cache.Redis, m *monitoring.Metric
 		}
 	}
 
-	return 0, 0, fmt.Errorf("unable to get peers from trackers")
+	return 0, 0, fmt.Errorf("unable to get peers from trackers for infohash: %s", infoHash)
 }

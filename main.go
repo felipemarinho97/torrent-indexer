@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 	"os"
 
@@ -36,7 +37,7 @@ func main() {
 			panic(err)
 		}
 	}()
-
+	fmt.Println("Server listening on :7006")
 	err := http.ListenAndServe(":7006", indexerMux)
 	if err != nil {
 		panic(err)

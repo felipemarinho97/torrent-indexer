@@ -30,6 +30,17 @@ func NewFlareSolverr(url string, timeoutMilli int) *FlareSolverr {
 		sessionPool: sessionPool,
 	}
 
+	f.FillSessionPool()
+
+	return f
+}
+
+func (f *FlareSolverr) FillSessionPool() {
+	// Check if the pool is already filled
+	if len(f.sessionPool) == cap(f.sessionPool) {
+		return
+	}
+
 	// Pre-initialize the pool with existing sessions
 	sessions, err := f.ListSessions()
 	if err != nil {
@@ -50,8 +61,6 @@ func NewFlareSolverr(url string, timeoutMilli int) *FlareSolverr {
 	for len(f.sessionPool) < cap(f.sessionPool) {
 		f.CreateSession()
 	}
-
-	return f
 }
 
 func (f *FlareSolverr) CreateSession() string {
@@ -157,8 +166,10 @@ type Response struct {
 }
 
 func (f *FlareSolverr) Get(url string) (io.ReadCloser, error) {
+	// Retrieve session from the pool (blocking if no sessions available)
 	session := f.RetrieveSession()
-	// return the session to the pool once the request is finished
+
+	// Ensure the session is returned to the pool after the request is done
 	defer func() {
 		f.sessionPool <- session
 	}()
@@ -185,23 +196,23 @@ func (f *FlareSolverr) Get(url string) (io.ReadCloser, error) {
 		return nil, err
 	}
 
-	// parse the response
+	// Parse the response
 	var response Response
 	err = json.NewDecoder(resp.Body).Decode(&response)
 	if err != nil {
 		return nil, err
 	}
 
-	// check if the response was successful
+	// Check if the response was successful
 	if response.Status != "ok" {
 		return nil, fmt.Errorf("failed to get response: %s", response.Message)
 	}
 
-	// check if string "Under attack" is in the response
+	// Check if "Under attack" is in the response
 	if strings.Contains(response.Solution.Response, "Under attack") {
 		return nil, fmt.Errorf("under attack")
 	}
 
-	// return the response body
+	// Return the response body
 	return io.NopCloser(bytes.NewReader([]byte(response.Solution.Response))), nil
 }
