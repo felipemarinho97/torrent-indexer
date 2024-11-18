@@ -10,6 +10,7 @@ Visit [https://torrent-indexer.darklyn.org/](https://torrent-indexer.darklyn.org
 
 - [comando-torrents](https://comando.la/)
 - [bludv](https://bludvfilmes.tv/)
+- [torrent-dos-filmes](https://torrentdosfilmes.se/)
 
 ## Deploy
 
