@@ -26,6 +26,7 @@ func main() {
 
 	indexerMux.HandleFunc("/", handler.HandlerIndex)
 	indexerMux.HandleFunc("/indexers/comando_torrents", indexers.HandlerComandoIndexer)
+	indexerMux.HandleFunc("/indexers/torrent-dos-filmes", indexers.HandlerTorrentDosFilmesIndexer)
 	indexerMux.HandleFunc("/indexers/bludv", indexers.HandlerBluDVIndexer)
 	indexerMux.HandleFunc("/indexers/manual", indexers.HandlerManualIndexer)
 
@@ -38,7 +39,7 @@ func main() {
 		}
 	}()
 	fmt.Println("Server listening on :7006")
-	err := http.ListenAndServe(":7006", indexerMux)
+	err := http.ListenAndServe(":7007", indexerMux)
 	if err != nil {
 		panic(err)
 	}
