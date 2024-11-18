@@ -39,7 +39,7 @@ func main() {
 		}
 	}()
 	fmt.Println("Server listening on :7006")
-	err := http.ListenAndServe(":7007", indexerMux)
+	err := http.ListenAndServe(":7006", indexerMux)
 	if err != nil {
 		panic(err)
 	}
