@@ -59,7 +59,7 @@ var AudioList = []Audio{
 }
 
 func (a Audio) String() string {
-	return a.toISO639_2()
+	return a.toTag()
 }
 
 func GetAudioFromString(s string) *Audio {
@@ -71,12 +71,12 @@ func GetAudioFromString(s string) *Audio {
 	return nil
 }
 
-func (a Audio) toISO639_2() string {
+func (a Audio) toTag() string {
 	switch a {
 	case AudioPortuguese:
-		return "por"
+		return "brazilian"
 	case AudioPortuguese2:
-		return "por"
+		return "brazilian"
 	case AudioEnglish:
 		return "eng"
 	case AudioEnglish2:
