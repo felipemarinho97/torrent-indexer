@@ -49,14 +49,17 @@ func (i *Indexer) HandlerComandoIndexer(w http.ResponseWriter, r *http.Request) 
 	}()
 
 	ctx := r.Context()
-	// supported query params: q, season, episode
+	// supported query params: q, season, episode, page, filter_results
 	q := r.URL.Query().Get("q")
+	page := r.URL.Query().Get("page")
 
 	// URL encode query param
 	q = url.QueryEscape(q)
 	url := comando.URL
 	if q != "" {
 		url = fmt.Sprintf("%s%s%s", url, comando.SearchURL, q)
+	} else if page != "" {
+		url = fmt.Sprintf("%spage/%s", url, page)
 	}
 
 	fmt.Println("URL:>", url)
