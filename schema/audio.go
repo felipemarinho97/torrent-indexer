@@ -8,6 +8,7 @@ const (
 	AudioPortuguese  = "Português"
 	AudioPortuguese2 = "Portugues"
 	AudioPortuguese3 = "PT-BR"
+	AudioPortuguese4 = "Dublado"
 	AudioEnglish     = "Inglês"
 	AudioEnglish2    = "Ingles"
 	AudioSpanish     = "Espanhol"
@@ -31,12 +32,14 @@ const (
 	AudioThai        = "Tailandês"
 	AudioThai2       = "Tailandes"
 	AudioTurkish     = "Turco"
+	AudioHindi       = "Hindi"
 )
 
 var AudioList = []Audio{
 	AudioPortuguese,
 	AudioPortuguese2,
 	AudioPortuguese3,
+	AudioPortuguese4,
 	AudioEnglish,
 	AudioEnglish2,
 	AudioSpanish,
@@ -60,6 +63,7 @@ var AudioList = []Audio{
 	AudioThai,
 	AudioThai2,
 	AudioTurkish,
+	AudioHindi,
 }
 
 func (a Audio) String() string {
@@ -82,6 +86,8 @@ func (a Audio) toTag() string {
 	case AudioPortuguese2:
 		return "brazilian"
 	case AudioPortuguese3:
+		return "brazilian"
+	case AudioPortuguese4:
 		return "brazilian"
 	case AudioEnglish:
 		return "eng"
@@ -129,6 +135,8 @@ func (a Audio) toTag() string {
 		return "tha"
 	case AudioTurkish:
 		return "tur"
+	case AudioHindi:
+		return "hin"
 	default:
 		return ""
 	}
