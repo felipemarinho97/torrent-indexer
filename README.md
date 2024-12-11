@@ -23,6 +23,19 @@ docker-compose up -d
 
 The server will be available at [http://localhost:8080/](http://localhost:8080/).
 
+## Configuration
+
+You can configure the server using the following environment variables:
+  
+- `PORT`: (optional) The port that the server will listen to. Default: `7006`
+- `FLARESOLVERR_ADDRESS`: (optional) The address of the FlareSolverr instance. Default: `N/A`
+- `REDIS_HOST`: (optional) The address of the Redis instance. Default: `localhost`
+- `SHORT_LIVED_CACHE_EXPIRATION` (optional) The expiration time of the short-lived cache in duration format. Default: `30m`
+    - This cache is used to cache homepage or search results.
+    - Example: `30m`, `1h`, `1h30m`, `1h30m30s`
+- `LONG_LIVED_CACHE_EXPIRATION` (optional) The expiration time of the long-lived cache in duration format. Default: `7d`
+    - This cache is used to store the torrent webpages (posts). You can set it to a higher value because the torrent pages are not updated frequently.
+
 ## Integrating with Jackett
 
 You can integrate this indexer with Jackett by adding a new Torznab custom indexer. Here is an example of how to do it for the `bludv` indexer:
