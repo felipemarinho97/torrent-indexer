@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
+	"strings"
 	"sync"
 )
 
@@ -235,6 +236,11 @@ func (f *FlareSolverr) Get(_url string) (io.ReadCloser, error) {
 	// Check if the response was successful
 	if response.Status != "ok" {
 		return nil, fmt.Errorf("failed to get response: %s", response.Message)
+	}
+
+	// Check if "Under attack" is in the response
+	if strings.Contains(response.Solution.Response, "Under attack") {
+		return nil, fmt.Errorf("under attack")
 	}
 
 	// If the response body is empty but cookies are present, make a new request
