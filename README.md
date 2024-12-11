@@ -29,6 +29,8 @@ You can configure the server using the following environment variables:
   
 - `PORT`: (optional) The port that the server will listen to. Default: `7006`
 - `FLARESOLVERR_ADDRESS`: (optional) The address of the FlareSolverr instance. Default: `N/A`
+- `MEILISEARCH_ADDRESS`: (optional) The address of the MeiliSearch instance. Default: `N/A`
+- `MEILISEARCH_KEY`: (optional) The API key of the MeiliSearch instance. Default: `N/A`
 - `REDIS_HOST`: (optional) The address of the Redis instance. Default: `localhost`
 - `SHORT_LIVED_CACHE_EXPIRATION` (optional) The expiration time of the short-lived cache in duration format. Default: `30m`
     - This cache is used to cache homepage or search results.

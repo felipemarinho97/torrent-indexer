@@ -12,6 +12,7 @@ services:
     environment:
       - REDIS_HOST=redis
       - MEILISEARCH_ADDRESS=http://meilisearch:7700
+      - MEILISEARCH_KEY=my-secret-key
       - FLARESOLVERR_ADDRESS=http://flaresolverr:8191
   
   redis:
@@ -21,7 +22,9 @@ services:
     networks:
       - indexer
 
-  meilisearch:
+  # This container is not necessary for the indexer to work,
+  # deploy if you want to use the search feature
+  meilisearch: 
     image: getmeili/meilisearch:latest
     container_name: meilisearch
     restart: unless-stopped
