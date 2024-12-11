@@ -21,7 +21,7 @@ import (
 )
 
 var bludv = IndexerMeta{
-	URL:       "https://bludvfilmes.tv/",
+	URL:       "https://bludv.xyz/",
 	SearchURL: "?s=",
 }
 
@@ -33,14 +33,17 @@ func (i *Indexer) HandlerBluDVIndexer(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	ctx := r.Context()
-	// supported query params: q, season, episode, filter_results
+	// supported query params: q, season, episode, page, filter_results
 	q := r.URL.Query().Get("q")
+	page := r.URL.Query().Get("page")
 
 	// URL encode query param
 	q = url.QueryEscape(q)
 	url := bludv.URL
 	if q != "" {
 		url = fmt.Sprintf("%s%s%s", url, bludv.SearchURL, q)
+	} else if page != "" {
+		url = fmt.Sprintf("%spage/%s", url, page)
 	}
 
 	fmt.Println("URL:>", url)

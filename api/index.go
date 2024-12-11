@@ -65,6 +65,7 @@ func HandlerIndex(w http.ResponseWriter, r *http.Request) {
 					"description": "Indexer for comando torrents",
 					"query_params": map[string]string{
 						"q":              "search query",
+						"page":           "page number",
 						"filter_results": "if results with similarity equals to zero should be filtered (true/false)",
 					},
 				},
@@ -75,12 +76,14 @@ func HandlerIndex(w http.ResponseWriter, r *http.Request) {
 					"description": "Indexer for bludv",
 					"query_params": map[string]string{
 						"q":              "search query",
+						"page":           "page number",
 						"filter_results": "if results with similarity equals to zero should be filtered (true/false)",
 					}},
 			},
 			"/indexers/torrent-dos-filmes": []map[string]interface{}{
 				{
 					"method":      "GET",
+					"page":        "page number",
 					"description": "Indexer for Torrent dos Filmes",
 					"query_params": map[string]string{
 						"q":              "search query",

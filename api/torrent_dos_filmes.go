@@ -33,14 +33,17 @@ func (i *Indexer) HandlerTorrentDosFilmesIndexer(w http.ResponseWriter, r *http.
 	}()
 
 	ctx := r.Context()
-	// supported query params: q, season, episode, filter_results
+	// supported query params: q, season, episode, page, filter_results
 	q := r.URL.Query().Get("q")
+	page := r.URL.Query().Get("page")
 
 	// URL encode query param
 	q = url.QueryEscape(q)
 	url := torrent_dos_filmes.URL
 	if q != "" {
 		url = fmt.Sprintf("%s%s%s", url, torrent_dos_filmes.SearchURL, q)
+	} else if page != "" {
+		url = fmt.Sprintf("%spage/%s", url, page)
 	}
 
 	fmt.Println("URL:>", url)
