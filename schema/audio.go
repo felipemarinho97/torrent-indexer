@@ -33,6 +33,8 @@ const (
 	AudioThai2       = "Tailandes"
 	AudioTurkish     = "Turco"
 	AudioHindi       = "Hindi"
+	AudioFarsi       = "Persa"
+	AudioMalay       = "Malaio"
 )
 
 var AudioList = []Audio{
