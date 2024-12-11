@@ -13,7 +13,7 @@
   <div class="container mx-auto p-6">
     <!-- Header -->
     <header class="text-center mb-10">
-      <h1 class="text-4xl font-bold text-blue-400">Torrent Indexer</h1>
+      <h1 class="text-4xl font-bold text-blue-400">Torrent Indexer 🇧🇷</h1>
       <p class="text-gray-400 mt-2">Find torrents with detailed information from torrent-indexer cache</p>
     </header>
 
@@ -85,7 +85,7 @@
     }
 
     // Handle search
-    document.getElementById('search-btn').addEventListener('click', async () => {
+    async function onSearch() {
       const query = document.getElementById('search-query').value.trim();
       if (!query) {
         alert('Please enter a search query!');
@@ -102,8 +102,23 @@
         const resultsContainer = document.getElementById('results');
         resultsContainer.innerHTML = results.map(renderTorrent).join('');
       } catch (error) {
-        alert('Error fetching search results. Please try again.');
+        // add error element
+        document.getElementById('results').innerHTML = `
+          <div class="p-6 bg-red-800 rounded-lg shadow-md text-center">
+            <p class="text-xl font-bold text-red-400">Error fetching search results</p>
+            <p class="text-gray-400 mt-2">Please try again later.</p>
+          </div>
+        `;
+        //alert('Error fetching search results. Please try again.');
         console.error(error);
+      }
+    }
+    
+    document.getElementById('search-btn').addEventListener('click', onSearch);
+    // on enter press
+    document.getElementById('search-query').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        onSearch();
       }
     });
   </script>
