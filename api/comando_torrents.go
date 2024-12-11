@@ -136,7 +136,9 @@ func (i *Indexer) HandlerComandoIndexer(w http.ResponseWriter, r *http.Request) 
 	})
 
 	// send to search index
-	go i.search.IndexTorrents(indexedTorrents)
+	go func() {
+		_ = i.search.IndexTorrents(indexedTorrents)
+	}()
 
 	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(Response{

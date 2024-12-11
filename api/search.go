@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/felipemarinho97/torrent-indexer/schema"
 	meilisearch "github.com/felipemarinho97/torrent-indexer/search"
 )
 
@@ -17,29 +16,6 @@ type MeilisearchHandler struct {
 // NewMeilisearchHandler creates a new instance of MeilisearchHandler.
 func NewMeilisearchHandler(module *meilisearch.SearchIndexer) *MeilisearchHandler {
 	return &MeilisearchHandler{Module: module}
-}
-
-// IndexTorrentHandler handles the indexing of a torrent item.
-func (h *MeilisearchHandler) IndexTorrentHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	var torrent schema.IndexedTorrent
-	if err := json.NewDecoder(r.Body).Decode(&torrent); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
-	}
-
-	err := h.Module.IndexTorrent(torrent)
-	if err != nil {
-		http.Error(w, "Failed to index torrent", http.StatusInternalServerError)
-		return
-	}
-
-	w.WriteHeader(http.StatusCreated)
-	w.Write([]byte("Torrent indexed successfully"))
 }
 
 // SearchTorrentHandler handles the searching of torrent items.
