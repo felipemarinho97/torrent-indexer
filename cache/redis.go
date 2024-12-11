@@ -9,13 +9,14 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-var (
+const (
 	DefaultExpiration      = 24 * time.Hour * 7 // 7 days
 	IndexerComandoTorrents = "indexer:comando_torrents"
 )
 
 type Redis struct {
-	client *redis.Client
+	client            *redis.Client
+	defaultExpiration time.Duration
 }
 
 func NewRedis() *Redis {
@@ -28,7 +29,12 @@ func NewRedis() *Redis {
 			Addr:     fmt.Sprintf("%s:6379", redisHost),
 			Password: "",
 		}),
+		defaultExpiration: DefaultExpiration,
 	}
+}
+
+func (r *Redis) SetDefaultExpiration(expiration time.Duration) {
+	r.defaultExpiration = expiration
 }
 
 func (r *Redis) Get(ctx context.Context, key string) ([]byte, error) {
@@ -36,7 +42,7 @@ func (r *Redis) Get(ctx context.Context, key string) ([]byte, error) {
 }
 
 func (r *Redis) Set(ctx context.Context, key string, value []byte) error {
-	return r.client.Set(ctx, key, value, DefaultExpiration).Err()
+	return r.client.Set(ctx, key, value, r.defaultExpiration).Err()
 }
 
 func (r *Redis) SetWithExpiration(ctx context.Context, key string, value []byte, expiration time.Duration) error {

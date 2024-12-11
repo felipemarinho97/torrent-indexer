@@ -13,20 +13,24 @@ import (
 )
 
 const (
-	shortLivedCacheExpiration = 30 * time.Minute
-	cacheKey                  = "shortLivedCache"
+	cacheKey = "shortLivedCache"
 )
 
 var challangeRegex = regexp.MustCompile(`(?i)(just a moment|cf-chl-bypass|under attack)`)
 
 type Requster struct {
-	fs         *FlareSolverr
-	c          *cache.Redis
-	httpClient *http.Client
+	fs                        *FlareSolverr
+	c                         *cache.Redis
+	httpClient                *http.Client
+	shortLivedCacheExpiration time.Duration
 }
 
 func NewRequester(fs *FlareSolverr, c *cache.Redis) *Requster {
-	return &Requster{fs: fs, httpClient: &http.Client{}, c: c}
+	return &Requster{fs: fs, httpClient: &http.Client{}, c: c, shortLivedCacheExpiration: 30 * time.Minute}
+}
+
+func (i *Requster) SetShortLivedCacheExpiration(expiration time.Duration) {
+	i.shortLivedCacheExpiration = expiration
 }
 
 func (i *Requster) GetDocument(ctx context.Context, url string) (io.ReadCloser, error) {
@@ -75,7 +79,7 @@ func (i *Requster) GetDocument(ctx context.Context, url string) (io.ReadCloser, 
 
 	// save response to cache if it's not a challange and body is not empty
 	if !hasChallange(bodyByte) && len(bodyByte) > 0 {
-		err = i.c.SetWithExpiration(ctx, key, bodyByte, shortLivedCacheExpiration)
+		err = i.c.SetWithExpiration(ctx, key, bodyByte, i.shortLivedCacheExpiration)
 		if err != nil {
 			fmt.Printf("failed to save response to cache: %v\n", err)
 		}

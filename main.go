@@ -10,6 +10,8 @@ import (
 	"github.com/felipemarinho97/torrent-indexer/monitoring"
 	"github.com/felipemarinho97/torrent-indexer/requester"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+
+	str2duration "github.com/xhit/go-str2duration/v2"
 )
 
 func main() {
@@ -19,6 +21,21 @@ func main() {
 
 	flaresolverr := requester.NewFlareSolverr(os.Getenv("FLARESOLVERR_ADDRESS"), 60000)
 	req := requester.NewRequester(flaresolverr, redis)
+
+	// get shot-lived and long-lived cache expiration from env
+	shortLivedCacheExpiration, err := str2duration.ParseDuration(os.Getenv("SHORT_LIVED_CACHE_EXPIRATION"))
+	if err == nil {
+		fmt.Printf("Setting short-lived cache expiration to %s\n", shortLivedCacheExpiration)
+		req.SetShortLivedCacheExpiration(shortLivedCacheExpiration)
+	}
+	longLivedCacheExpiration, err := str2duration.ParseDuration(os.Getenv("LONG_LIVED_CACHE_EXPIRATION"))
+	if err == nil {
+		fmt.Printf("Setting long-lived cache expiration to %s\n", longLivedCacheExpiration)
+		redis.SetDefaultExpiration(longLivedCacheExpiration)
+	} else {
+		fmt.Println(err)
+	}
+
 	indexers := handler.NewIndexers(redis, metrics, req)
 
 	indexerMux := http.NewServeMux()
@@ -38,8 +55,14 @@ func main() {
 			panic(err)
 		}
 	}()
-	fmt.Println("Server listening on :7006")
-	err := http.ListenAndServe(":7006", indexerMux)
+
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "7006"
+	}
+
+	fmt.Printf("Server listening on :%s\n", port)
+	err = http.ListenAndServe(":"+port, indexerMux)
 	if err != nil {
 		panic(err)
 	}
