@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/cookiejar"
+	"net/url"
 	"strings"
 	"sync"
 )
@@ -18,6 +20,10 @@ type FlareSolverr struct {
 	mu          sync.Mutex
 	initiated   bool
 }
+
+var (
+	ErrListSessions = fmt.Errorf("failed to list sessions")
+)
 
 func NewFlareSolverr(url string, timeoutMilli int) *FlareSolverr {
 	poolSize := 5
@@ -48,6 +54,14 @@ func (f *FlareSolverr) FillSessionPool() error {
 	// Pre-initialize the pool with existing sessions
 	sessions, err := f.ListSessions()
 	if err != nil {
+		// if fail to list sessions, it may not support the sessions.list command
+		// create new dumb sessions to fill the pool
+		if err == ErrListSessions {
+			for len(f.sessionPool) < cap(f.sessionPool) {
+				f.sessionPool <- "dumb-session"
+			}
+			return nil
+		}
 		fmt.Println("Failed to list existing FlareSolverr sessions:", err)
 		return err
 	} else {
@@ -134,6 +148,9 @@ func (f *FlareSolverr) ListSessions() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	if sessionsResponse["sessions"] == nil {
+		return nil, ErrListSessions
+	}
 
 	sessions := sessionsResponse["sessions"].([]interface{})
 	var sessionIDs []string
@@ -172,7 +189,7 @@ type Response struct {
 	} `json:"solution"`
 }
 
-func (f *FlareSolverr) Get(url string) (io.ReadCloser, error) {
+func (f *FlareSolverr) Get(_url string) (io.ReadCloser, error) {
 	// Check if the FlareSolverr instance was initiated
 	if !f.initiated {
 		return io.NopCloser(bytes.NewReader([]byte(""))), nil
@@ -188,7 +205,7 @@ func (f *FlareSolverr) Get(url string) (io.ReadCloser, error) {
 
 	body := map[string]string{
 		"cmd":        "request.get",
-		"url":        url,
+		"url":        _url,
 		"maxTimeout": fmt.Sprintf("%d", f.maxTimeout),
 		"session":    session,
 	}
@@ -196,6 +213,7 @@ func (f *FlareSolverr) Get(url string) (io.ReadCloser, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	req, err := http.NewRequest("POST", fmt.Sprintf("%s/v1", f.url), bytes.NewBuffer(jsonBody))
 	if err != nil {
 		return nil, err
@@ -225,6 +243,40 @@ func (f *FlareSolverr) Get(url string) (io.ReadCloser, error) {
 		return nil, fmt.Errorf("under attack")
 	}
 
-	// Return the response body
+	// If the response body is empty but cookies are present, make a new request
+	if response.Solution.Response == "" && len(response.Solution.Cookies) > 0 {
+		// Create a new request with cookies
+		client := &http.Client{}
+		cookieJar, err := cookiejar.New(&cookiejar.Options{})
+		if err != nil {
+			return nil, err
+		}
+		for _, cookie := range response.Solution.Cookies {
+			cookieJar.SetCookies(&url.URL{Host: cookie.Domain}, []*http.Cookie{
+				{
+					Name:   cookie.Name,
+					Value:  cookie.Value,
+					Domain: cookie.Domain,
+					Path:   cookie.Path,
+				},
+			})
+		}
+		client.Jar = cookieJar
+
+		secondReq, err := http.NewRequest("GET", _url, nil)
+		if err != nil {
+			return nil, err
+		}
+
+		secondResp, err := client.Do(secondReq)
+		if err != nil {
+			return nil, err
+		}
+
+		// Return the body of the second request
+		return secondResp.Body, nil
+	}
+
+	// Return the original response body
 	return io.NopCloser(bytes.NewReader([]byte(response.Solution.Response))), nil
 }

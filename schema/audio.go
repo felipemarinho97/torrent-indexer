@@ -1,10 +1,13 @@
 package schema
 
+import "strings"
+
 type Audio string
 
 const (
 	AudioPortuguese  = "Português"
 	AudioPortuguese2 = "Portugues"
+	AudioPortuguese3 = "PT-BR"
 	AudioEnglish     = "Inglês"
 	AudioEnglish2    = "Ingles"
 	AudioSpanish     = "Espanhol"
@@ -33,6 +36,7 @@ const (
 var AudioList = []Audio{
 	AudioPortuguese,
 	AudioPortuguese2,
+	AudioPortuguese3,
 	AudioEnglish,
 	AudioEnglish2,
 	AudioSpanish,
@@ -64,7 +68,7 @@ func (a Audio) String() string {
 
 func GetAudioFromString(s string) *Audio {
 	for _, a := range AudioList {
-		if string(a) == s {
+		if strings.EqualFold(string(a), s) {
 			return &a
 		}
 	}
@@ -76,6 +80,8 @@ func (a Audio) toTag() string {
 	case AudioPortuguese:
 		return "brazilian"
 	case AudioPortuguese2:
+		return "brazilian"
+	case AudioPortuguese3:
 		return "brazilian"
 	case AudioEnglish:
 		return "eng"
