@@ -163,19 +163,11 @@ func getTorrents(ctx context.Context, i *Indexer, link string) ([]schema.Indexed
 	// div itemprop="datePublished"
 	datePublished := strings.TrimSpace(article.Find("div[itemprop=\"datePublished\"]").Text())
 	// pattern: 10 de setembro de 2021
-	re := regexp.MustCompile(`(\d{2}) de (\w+) de (\d{4})`)
-	matches := re.FindStringSubmatch(datePublished)
-	var date time.Time
-	if len(matches) > 0 {
-		day := matches[1]
-		month := matches[2]
-		year := matches[3]
-		datePublished = fmt.Sprintf("%s-%s-%s", year, replacer.Replace(month), day)
-		date, err = time.Parse("2006-01-02", datePublished)
-		if err != nil {
-			return nil, err
-		}
+	date, err := parseLocalizedDate(datePublished)
+	if err != nil {
+		return nil, err
 	}
+
 	magnets := textContent.Find("a[href^=\"magnet\"]")
 	var magnetLinks []string
 	magnets.Each(func(i int, s *goquery.Selection) {
@@ -217,10 +209,9 @@ func getTorrents(ctx context.Context, i *Indexer, link string) ([]schema.Indexed
 	imdbLink := ""
 	article.Find("a").Each(func(i int, s *goquery.Selection) {
 		link, _ := s.Attr("href")
-		re := regexp.MustCompile(`https://www.imdb.com/title/(tt\d+)`)
-		matches := re.FindStringSubmatch(link)
-		if len(matches) > 0 {
-			imdbLink = matches[0]
+		_imdbLink, err := getIMDBLink(link)
+		if err == nil {
+			imdbLink = _imdbLink
 		}
 	})
 
@@ -291,6 +282,40 @@ func getTorrents(ctx context.Context, i *Indexer, link string) ([]schema.Indexed
 	}
 
 	return indexedTorrents, nil
+}
+
+func getIMDBLink(link string) (string, error) {
+	var imdbLink string
+	re := regexp.MustCompile(`https://www.imdb.com(/[a-z]{2})?/title/(tt\d+)/?`)
+
+	matches := re.FindStringSubmatch(link)
+	if len(matches) > 0 {
+		imdbLink = matches[0]
+	} else {
+		return "", fmt.Errorf("no imdb link found")
+	}
+	return imdbLink, nil
+}
+
+func parseLocalizedDate(datePublished string) (time.Time, error) {
+	re := regexp.MustCompile(`(\d{1,2}) de (\w+) de (\d{4})`)
+	matches := re.FindStringSubmatch(datePublished)
+	if len(matches) > 0 {
+		day := matches[1]
+		// append 0 to single digit day
+		if len(day) == 1 {
+			day = fmt.Sprintf("0%s", day)
+		}
+		month := matches[2]
+		year := matches[3]
+		datePublished = fmt.Sprintf("%s-%s-%s", year, replacer.Replace(month), day)
+		date, err := time.Parse("2006-01-02", datePublished)
+		if err != nil {
+			return time.Time{}, err
+		}
+		return date, nil
+	}
+	return time.Time{}, nil
 }
 
 func stableUniq(s []string) []string {
