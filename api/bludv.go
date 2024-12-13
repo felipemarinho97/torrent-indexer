@@ -40,10 +40,10 @@ func (i *Indexer) HandlerBluDVIndexer(w http.ResponseWriter, r *http.Request) {
 	// URL encode query param
 	q = url.QueryEscape(q)
 	url := bludv.URL
-	if q != "" {
-		url = fmt.Sprintf("%s%s%s", url, bludv.SearchURL, q)
-	} else if page != "" {
+	if page != "" {
 		url = fmt.Sprintf("%spage/%s", url, page)
+	} else {
+		url = fmt.Sprintf("%s%s%s", url, bludv.SearchURL, q)
 	}
 
 	fmt.Println("URL:>", url)

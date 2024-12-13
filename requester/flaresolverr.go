@@ -10,6 +10,8 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+
+	"github.com/felipemarinho97/torrent-indexer/utils"
 )
 
 type FlareSolverr struct {
@@ -243,8 +245,15 @@ func (f *FlareSolverr) Get(_url string) (io.ReadCloser, error) {
 		return nil, fmt.Errorf("under attack")
 	}
 
+	// check if the response is valid HTML
+	if !utils.IsValidHTML(response.Solution.Response) {
+		fmt.Printf("[FlareSolverr] Invalid HTML response from %s\n", _url)
+		response.Solution.Response = ""
+	}
+
 	// If the response body is empty but cookies are present, make a new request
 	if response.Solution.Response == "" && len(response.Solution.Cookies) > 0 {
+		fmt.Printf("[FlareSolverr] Making a new request to %s with cookies\n", _url)
 		// Create a new request with cookies
 		client := &http.Client{}
 		cookieJar, err := cookiejar.New(&cookiejar.Options{})
@@ -276,8 +285,14 @@ func (f *FlareSolverr) Get(_url string) (io.ReadCloser, error) {
 			return nil, err
 		}
 
+		respByte := new(bytes.Buffer)
+		_, err = respByte.ReadFrom(secondResp.Body)
+		if err != nil {
+			return nil, err
+		}
+
 		// Return the body of the second request
-		return secondResp.Body, nil
+		return io.NopCloser(bytes.NewReader(respByte.Bytes())), nil
 	}
 
 	// Return the original response body
