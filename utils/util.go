@@ -28,9 +28,5 @@ func IsValidHTML(input string) bool {
 
 	// Check for <body> and </body> tags (case-insensitive)
 	bodyTagRegex := regexp.MustCompile(`(?i)<body[\s\S]*?>[\s\S]*?</body>`)
-	if !bodyTagRegex.MatchString(input) {
-		return false
-	}
-
-	return true
+	return bodyTagRegex.MatchString(input)
 }
