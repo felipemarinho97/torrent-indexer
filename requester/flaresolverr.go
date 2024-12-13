@@ -268,6 +268,9 @@ func (f *FlareSolverr) Get(_url string) (io.ReadCloser, error) {
 			return nil, err
 		}
 
+		// use the same user returned by the FlareSolverr
+		secondReq.Header.Set("User-Agent", response.Solution.UserAgent)
+
 		secondResp, err := client.Do(secondReq)
 		if err != nil {
 			return nil, err
