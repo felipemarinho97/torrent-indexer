@@ -26,7 +26,7 @@ type ManualIndexerRequest struct {
 func (i *Indexer) HandlerManualIndexer(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var req ManualIndexerRequest
-	indexedTorrents := []IndexedTorrent{}
+	indexedTorrents := []schema.IndexedTorrent{}
 
 	// fetch from redis
 	out, err := i.redis.Get(ctx, manualTorrentsRedisKey)
@@ -97,7 +97,7 @@ func (i *Indexer) HandlerManualIndexer(w http.ResponseWriter, r *http.Request) {
 
 		title := processTitle(releaseTitle, magnetAudio)
 
-		ixt := IndexedTorrent{
+		ixt := schema.IndexedTorrent{
 			Title:         appendAudioISO639_2Code(releaseTitle, magnetAudio),
 			OriginalTitle: title,
 			Audio:         magnetAudio,

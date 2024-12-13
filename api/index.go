@@ -9,12 +9,14 @@ import (
 	"github.com/felipemarinho97/torrent-indexer/monitoring"
 	"github.com/felipemarinho97/torrent-indexer/requester"
 	"github.com/felipemarinho97/torrent-indexer/schema"
+	meilisearch "github.com/felipemarinho97/torrent-indexer/search"
 )
 
 type Indexer struct {
 	redis     *cache.Redis
 	metrics   *monitoring.Metrics
 	requester *requester.Requster
+	search    *meilisearch.SearchIndexer
 }
 
 type IndexerMeta struct {
@@ -23,32 +25,16 @@ type IndexerMeta struct {
 }
 
 type Response struct {
-	Results []IndexedTorrent `json:"results"`
-	Count   int              `json:"count"`
+	Results []schema.IndexedTorrent `json:"results"`
+	Count   int                     `json:"count"`
 }
 
-type IndexedTorrent struct {
-	Title         string         `json:"title"`
-	OriginalTitle string         `json:"original_title"`
-	Details       string         `json:"details"`
-	Year          string         `json:"year"`
-	IMDB          string         `json:"imdb"`
-	Audio         []schema.Audio `json:"audio"`
-	MagnetLink    string         `json:"magnet_link"`
-	Date          time.Time      `json:"date"`
-	InfoHash      string         `json:"info_hash"`
-	Trackers      []string       `json:"trackers"`
-	Size          string         `json:"size"`
-	LeechCount    int            `json:"leech_count"`
-	SeedCount     int            `json:"seed_count"`
-	Similarity    float32        `json:"similarity"`
-}
-
-func NewIndexers(redis *cache.Redis, metrics *monitoring.Metrics, req *requester.Requster) *Indexer {
+func NewIndexers(redis *cache.Redis, metrics *monitoring.Metrics, req *requester.Requster, si *meilisearch.SearchIndexer) *Indexer {
 	return &Indexer{
 		redis:     redis,
 		metrics:   metrics,
 		requester: req,
+		search:    si,
 	}
 }
 
@@ -101,6 +87,15 @@ func HandlerIndex(w http.ResponseWriter, r *http.Request) {
 				{
 					"method":      "GET",
 					"description": "Get all manual torrents",
+				},
+			},
+			"/search": []map[string]interface{}{
+				{
+					"method":      "GET",
+					"description": "Search for cached torrents across all indexers",
+					"query_params": map[string]string{
+						"q": "search query",
+					},
 				},
 			},
 		},

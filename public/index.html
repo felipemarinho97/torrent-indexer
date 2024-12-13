@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Torrent Indexer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@heroicons/react/solid@2.0.0/dist/index.umd.js"></script>
+</head>
+
+<body class="bg-gray-900 text-white font-sans">
+  <div class="container mx-auto p-6">
+    <!-- Header -->
+    <header class="text-center mb-10">
+      <h1 class="text-4xl font-bold text-blue-400">Torrent Indexer 🇧🇷</h1>
+      <p class="text-gray-400 mt-2">Find torrents with detailed information from torrent-indexer cache</p>
+    </header>
+
+    <!-- Search Bar -->
+    <div class="flex justify-center mb-10">
+      <input id="search-query" type="text" placeholder="Enter search query"
+        class="w-full max-w-lg px-4 py-2 rounded-md border border-gray-600 bg-gray-800 text-white focus:ring focus:ring-blue-500">
+      <button id="search-btn"
+        class="ml-4 px-6 py-2 bg-blue-600 hover:bg-blue-700 rounded-md font-bold text-white">Search</button>
+    </div>
+
+    <!-- Results Section -->
+    <div id="results" class="space-y-6">
+      <!-- Dynamic content will be injected here -->
+    </div>
+  </div>
+
+  <script>
+    // Function to render a single torrent result
+    function renderTorrent(torrent) {
+      return `
+        <div class="p-6 bg-gray-800 rounded-lg shadow-md flex flex-col md:flex-row gap-6">
+          <!-- Torrent Title and Details -->
+          <div class="flex-grow">
+            <h2 class="text-2xl font-bold text-blue-400 flex items-center gap-2">
+              <span>${torrent.title}</span>
+              <span class="text-sm text-gray-400">(${torrent.year})</span>
+            </h2>
+            <p class="text-gray-500 italic mt-1">${torrent.original_title}</p>
+            <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <p><strong>Audio:</strong> ${torrent.audio.join(', ')}</p>
+              <p><strong>Size:</strong> ${torrent.size}</p>
+              <p><strong>Seeds:</strong> ${torrent.seed_count} | <strong>Leeches:</strong> ${torrent.leech_count}</p>
+              <p><strong>Info Hash:</strong> <span class="text-sm break-all text-gray-300">${torrent.info_hash}</span></p>
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div class="flex flex-col justify-between items-start md:items-end">
+            <div>
+              <a href="${torrent.imdb}" target="_blank"
+                class="flex items-center gap-2 text-blue-500 hover:text-blue-400 font-medium">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M8 16l-4-4m0 0l4-4m-4 4h16" />
+                </svg>
+                View on IMDB
+              </a>
+              <a href="${torrent.details}" target="_blank"
+                class="flex items-center gap-2 text-blue-500 hover:text-blue-400 font-medium mt-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M13 16h-1v-4h-.01M9 20h6a2 2 0 002-2v-5a2 2 0 00-2-2h-3.5a2 2 0 00-1.85 1.19M13 10V6a3 3 0 00-6 0v4" />
+                </svg>
+                View Details
+              </a>
+            </div>
+            <a href="${torrent.magnet_link}" target="_blank"
+              class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-bold rounded-md flex items-center gap-2 mt-4">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M9 17v-6m6 6v-6m-6 6l-2-2m8 0l2-2M5 9l7-7 7 7" />
+              </svg>
+              Download Magnet
+            </a>
+          </div>
+        </div>
+      `;
+    }
+
+    // Handle search
+    async function onSearch() {
+      const query = document.getElementById('search-query').value.trim();
+      if (!query) {
+        alert('Please enter a search query!');
+        return;
+      }
+
+      try {
+        const response = await fetch(`/search?q=${encodeURIComponent(query)}`);
+        if (!response.ok) {
+          throw new Error('Search failed');
+        }
+
+        const results = await response.json();
+        const resultsContainer = document.getElementById('results');
+        resultsContainer.innerHTML = results.map(renderTorrent).join('');
+      } catch (error) {
+        // add error element
+        document.getElementById('results').innerHTML = `
+          <div class="p-6 bg-red-800 rounded-lg shadow-md text-center">
+            <p class="text-xl font-bold text-red-400">Error fetching search results</p>
+            <p class="text-gray-400 mt-2">Please try again later.</p>
+          </div>
+        `;
+        //alert('Error fetching search results. Please try again.');
+        console.error(error);
+      }
+    }
+    
+    document.getElementById('search-btn').addEventListener('click', onSearch);
+    // on enter press
+    document.getElementById('search-query').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        onSearch();
+      }
+    });
+  </script>
+</body>
+
+</html>

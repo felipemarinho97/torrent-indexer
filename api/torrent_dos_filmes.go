@@ -77,9 +77,9 @@ func (i *Indexer) HandlerTorrentDosFilmesIndexer(w http.ResponseWriter, r *http.
 		links = append(links, link)
 	})
 
-	var itChan = make(chan []IndexedTorrent)
+	var itChan = make(chan []schema.IndexedTorrent)
 	var errChan = make(chan error)
-	indexedTorrents := []IndexedTorrent{}
+	indexedTorrents := []schema.IndexedTorrent{}
 	for _, link := range links {
 		go func(link string) {
 			torrents, err := getTorrentsTorrentDosFilmes(ctx, i, link)
@@ -109,15 +109,20 @@ func (i *Indexer) HandlerTorrentDosFilmesIndexer(w http.ResponseWriter, r *http.
 
 	// remove the ones with zero similarity
 	if len(indexedTorrents) > 20 && r.URL.Query().Get("filter_results") != "" && r.URL.Query().Get("q") != "" {
-		indexedTorrents = utils.Filter(indexedTorrents, func(it IndexedTorrent) bool {
+		indexedTorrents = utils.Filter(indexedTorrents, func(it schema.IndexedTorrent) bool {
 			return it.Similarity > 0
 		})
 	}
 
 	// sort by similarity
-	slices.SortFunc(indexedTorrents, func(i, j IndexedTorrent) int {
+	slices.SortFunc(indexedTorrents, func(i, j schema.IndexedTorrent) int {
 		return int((j.Similarity - i.Similarity) * 1000)
 	})
+
+	// send to search index
+	go func() {
+		_ = i.search.IndexTorrents(indexedTorrents)
+	}()
 
 	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(Response{
@@ -129,8 +134,8 @@ func (i *Indexer) HandlerTorrentDosFilmesIndexer(w http.ResponseWriter, r *http.
 	}
 }
 
-func getTorrentsTorrentDosFilmes(ctx context.Context, i *Indexer, link string) ([]IndexedTorrent, error) {
-	var indexedTorrents []IndexedTorrent
+func getTorrentsTorrentDosFilmes(ctx context.Context, i *Indexer, link string) ([]schema.IndexedTorrent, error) {
+	var indexedTorrents []schema.IndexedTorrent
 	doc, err := getDocument(ctx, i, link)
 	if err != nil {
 		return nil, err
@@ -190,7 +195,7 @@ func getTorrentsTorrentDosFilmes(ctx context.Context, i *Indexer, link string) (
 
 	size = stableUniq(size)
 
-	var chanIndexedTorrent = make(chan IndexedTorrent)
+	var chanIndexedTorrent = make(chan schema.IndexedTorrent)
 
 	// for each magnet link, create a new indexed torrent
 	for it, magnetLink := range magnetLinks {
@@ -230,7 +235,7 @@ func getTorrentsTorrentDosFilmes(ctx context.Context, i *Indexer, link string) (
 				mySize = size[it]
 			}
 
-			ixt := IndexedTorrent{
+			ixt := schema.IndexedTorrent{
 				Title:         appendAudioISO639_2Code(releaseTitle, magnetAudio),
 				OriginalTitle: title,
 				Details:       link,

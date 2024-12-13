@@ -8,7 +8,9 @@ import (
 	handler "github.com/felipemarinho97/torrent-indexer/api"
 	"github.com/felipemarinho97/torrent-indexer/cache"
 	"github.com/felipemarinho97/torrent-indexer/monitoring"
+	"github.com/felipemarinho97/torrent-indexer/public"
 	"github.com/felipemarinho97/torrent-indexer/requester"
+	meilisearch "github.com/felipemarinho97/torrent-indexer/search"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	str2duration "github.com/xhit/go-str2duration/v2"
@@ -16,6 +18,7 @@ import (
 
 func main() {
 	redis := cache.NewRedis()
+	searchIndex := meilisearch.NewSearchIndexer(os.Getenv("MEILISEARCH_ADDRESS"), os.Getenv("MEILISEARCH_KEY"), "torrents")
 	metrics := monitoring.NewMetrics()
 	metrics.Register()
 
@@ -36,7 +39,8 @@ func main() {
 		fmt.Println(err)
 	}
 
-	indexers := handler.NewIndexers(redis, metrics, req)
+	indexers := handler.NewIndexers(redis, metrics, req, searchIndex)
+	search := handler.NewMeilisearchHandler(searchIndex)
 
 	indexerMux := http.NewServeMux()
 	metricsMux := http.NewServeMux()
@@ -46,6 +50,8 @@ func main() {
 	indexerMux.HandleFunc("/indexers/torrent-dos-filmes", indexers.HandlerTorrentDosFilmesIndexer)
 	indexerMux.HandleFunc("/indexers/bludv", indexers.HandlerBluDVIndexer)
 	indexerMux.HandleFunc("/indexers/manual", indexers.HandlerManualIndexer)
+	indexerMux.HandleFunc("/search", search.SearchTorrentHandler)
+	indexerMux.Handle("/ui/", http.StripPrefix("/ui/", http.FileServer(http.FS(public.UIFiles))))
 
 	metricsMux.Handle("/metrics", promhttp.Handler())
 
