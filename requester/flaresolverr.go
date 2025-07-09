@@ -298,3 +298,56 @@ func (f *FlareSolverr) Get(_url string) (io.ReadCloser, error) {
 	// Return the original response body
 	return io.NopCloser(bytes.NewReader([]byte(response.Solution.Response))), nil
 }
+
+func (f *FlareSolverr) GetCookies(_url string) (map[string]string, error) {
+	// Check if the FlareSolverr instance was initiated
+	if !f.initiated {
+		return nil, fmt.Errorf("FlareSolverr not initiated")
+	}
+
+	// Retrieve session from the pool (blocking if no sessions available)
+	session := f.RetrieveSession()
+
+	// Ensure the session is returned to the pool after the request is done
+	defer func() {
+		f.sessionPool <- session
+	}()
+
+	body := map[string]string{
+		"cmd":        "request.get",
+		"url":        _url,
+		"maxTimeout": fmt.Sprintf("%d", f.maxTimeout),
+		"session":    session,
+	}
+	jsonBody, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s/v1", f.url), bytes.NewBuffer(jsonBody))
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := f.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	// Parse the response
+	var response Response
+	err = json.NewDecoder(resp.Body).Decode(&response)
+	if err != nil {
+		return nil, err
+	}
+
+    cookies := map[string]string{}
+
+    for _, c := range response.Solution.Cookies {
+        cookies[c.Name] = c.Value
+    }
+
+    return cookies, nil
+}
