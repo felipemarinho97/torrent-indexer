@@ -59,7 +59,7 @@ func (i *Requster) GetDocument(ctx context.Context, url string) (io.ReadCloser, 
 
 	// try request with plain client
 	resp, err := i.httpClient.Get(url)
-	if err != nil {
+	if err != nil || resp.StatusCode == 520 {
 		// try request with flare solverr
 		body, err = i.fs.Get(url)
 		if err != nil {
