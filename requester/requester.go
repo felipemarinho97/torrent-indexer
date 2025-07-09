@@ -103,6 +103,32 @@ func (i *Requster) GetDocument(ctx context.Context, url string) (io.ReadCloser, 
 	return io.NopCloser(bytes.NewReader(bodyByte)), nil
 }
 
+func (i *Requster) GetCookies(ctx context.Context, url string) (map[string]string, error) {
+    var cookies map[string]string
+
+	// try request with plain client
+	resp, err := i.httpClient.Get(url)
+	if err != nil || resp.StatusCode == 520 {
+		// try request with flare solverr
+		cookies, err = i.fs.GetCookies(url)
+		if err != nil {
+			return nil, fmt.Errorf("failed to do request for url %s: %w", url, err)
+		}
+        return cookies, nil
+	} else {
+		defer resp.Body.Close()
+	}
+
+    jarCookies := i.jar.Cookies(resp.Request.URL)
+
+    cookies = map[string]string{}
+    for _, c := range jarCookies {
+        cookies[c.Name] = c.Value
+    }
+
+    return cookies, nil
+}
+
 // hasChallange checks if the body contains a challange by regex matching
 func hasChallange(body []byte) bool {
 	return challangeRegex.Match(body)
