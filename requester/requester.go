@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+    "net/http/cookiejar"
 	"regexp"
 	"time"
 
@@ -22,11 +23,22 @@ type Requster struct {
 	fs                        *FlareSolverr
 	c                         *cache.Redis
 	httpClient                *http.Client
+    jar                       *cookiejar.Jar
 	shortLivedCacheExpiration time.Duration
 }
 
 func NewRequester(fs *FlareSolverr, c *cache.Redis) *Requster {
-	return &Requster{fs: fs, httpClient: &http.Client{}, c: c, shortLivedCacheExpiration: 30 * time.Minute}
+    jar, err := cookiejar.New(nil)
+    if err != nil {
+        panic(err)
+    }
+	return &Requster{
+        fs: fs,
+        httpClient: &http.Client{Jar: jar},
+        jar: jar,
+        c: c,
+        shortLivedCacheExpiration: 30 * time.Minute,
+    }
 }
 
 func (i *Requster) SetShortLivedCacheExpiration(expiration time.Duration) {
