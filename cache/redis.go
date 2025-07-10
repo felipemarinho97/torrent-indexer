@@ -41,6 +41,10 @@ func (r *Redis) Get(ctx context.Context, key string) ([]byte, error) {
 	return r.client.Get(ctx, key).Bytes()
 }
 
+func (r *Redis) GetString(ctx context.Context, key string) (string, error) {
+	return r.client.Get(ctx, key).Result()
+}
+
 func (r *Redis) Set(ctx context.Context, key string, value []byte) error {
 	return r.client.Set(ctx, key, value, r.defaultExpiration).Err()
 }
