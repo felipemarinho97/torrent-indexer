@@ -45,6 +45,10 @@ func (i *Requster) SetShortLivedCacheExpiration(expiration time.Duration) {
 	i.shortLivedCacheExpiration = expiration
 }
 
+func (i *Requster) Cache() *cache.Redis {
+    return i.c
+}
+
 func (i *Requster) GetDocument(ctx context.Context, url string) (io.ReadCloser, error) {
 	var body io.ReadCloser
 
