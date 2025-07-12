@@ -17,6 +17,7 @@ import (
 	"github.com/felipemarinho97/torrent-indexer/schema"
 	goscrape "github.com/felipemarinho97/torrent-indexer/scrape"
 	"github.com/felipemarinho97/torrent-indexer/utils"
+    "github.com/felipemarinho97/torrent-indexer/unlock_bludv"
 )
 
 var bludv = IndexerMeta{
@@ -145,11 +146,24 @@ func getTorrentsBluDV(ctx context.Context, i *Indexer, link string) ([]schema.In
 	title := strings.Replace(article.Find(".title > h1").Text(), " - Download", "", -1)
 	textContent := article.Find("div.content")
 	date := getPublishedDate(doc)
-	magnets := textContent.Find("a[href^=\"magnet\"]")
+
 	var magnetLinks []string
-	magnets.Each(func(i int, s *goquery.Selection) {
+
+    magnets := textContent.Find("a[href^=\"magnet\"]")
+	magnets.Each(func(_ int, s *goquery.Selection) {
 		magnetLink, _ := s.Attr("href")
 		magnetLinks = append(magnetLinks, magnetLink)
+	})
+
+    locked := textContent.Find("a[href^=\"https://www.seuvideo.xyz\"]")
+	locked.Each(func(_ int, s *goquery.Selection) {
+        if !strings.Contains(strings.ToLower(s.Text()), "assistir") {
+            lockedUrl, _ := s.Attr("href")
+            magnetLink, err := unlock_bludv.UnlockBludvLink(i.requester, ctx, lockedUrl)
+            if err == nil {
+                magnetLinks = append(magnetLinks, *magnetLink)
+            }
+        }
 	})
 
 	var audio []schema.Audio
