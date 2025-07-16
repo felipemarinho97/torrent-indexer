@@ -1,6 +1,9 @@
 package utils
 
-import "regexp"
+import (
+	"strings"
+	"golang.org/x/net/html"
+)
 
 func Filter[A any](arr []A, f func(A) bool) []A {
 	var res []A
@@ -14,19 +17,7 @@ func Filter[A any](arr []A, f func(A) bool) []A {
 }
 
 func IsValidHTML(input string) bool {
-	// Check for <!DOCTYPE> declaration (case-insensitive)
-	doctypeRegex := regexp.MustCompile(`(?i)<!DOCTYPE\s+html>`)
-	if !doctypeRegex.MatchString(input) {
-		return false
-	}
-
-	// Check for <html> and </html> tags (case-insensitive)
-	htmlTagRegex := regexp.MustCompile(`(?i)<html[\s\S]*?>[\s\S]*?</html>`)
-	if !htmlTagRegex.MatchString(input) {
-		return false
-	}
-
-	// Check for <body> and </body> tags (case-insensitive)
-	bodyTagRegex := regexp.MustCompile(`(?i)<body[\s\S]*?>[\s\S]*?</body>`)
-	return bodyTagRegex.MatchString(input)
+	r := strings.NewReader(input)
+	_, err := html.Parse(r)
+	return err == nil
 }
