@@ -113,7 +113,91 @@ search:
 # json engine n/a
 ```
 
-If you have more tips on how to integrate with other torrent API clients like Prowlarr, please open a PR.
+## Integrating with Prowlarr
+
+You can integrate this indexer with Prowlarr by adding a custom definition. See [Adding a custom YML definition](https://wiki.servarr.com/prowlarr/indexers#adding-a-custom-yml-definition).
+
+```yaml
+---
+---
+id: torrent-indexer
+name: Torrent Indexer
+description: "Indexing Brazilian Torrent websites into structured data. github.com/felipemarinho97/torrent-indexer"
+language: pt-BR
+type: public
+encoding: UTF-8
+links:
+  - http://localhost:8080/
+
+caps:
+  categories:
+    Movies: Movies
+    TV: TV
+
+  modes:
+    search: [q]
+    tv-search: [q, season]
+    movie-search: [q]
+
+settings:
+  - name: indexer
+    type: select
+    label: Indexer
+    default: bludv
+    options:
+      bludv: BLUDV
+      comando_torrents: Comando Torrents
+      torrent-dos-filmes: Torrent dos Filmes
+
+search:
+  paths:
+    - path: "/indexers/{{ .Config.indexer }}"
+      response:
+        type: json
+  inputs:
+    filter_results: "true"
+    q: "{{ .Keywords }}"
+  keywordsfilters:
+    - name: tolower
+    - name: re_replace
+      args: ["(?i)(S0)(\\d{1,2})$", "temporada $2"]
+    - name: re_replace
+      args: ["(?i)(S)(\\d{1,3})$", "temporada $2"]
+
+  rows:
+    selector: $.results
+    count:
+      selector: $.count
+
+  fields:
+    download:
+      selector: magnet_link
+    title:
+      selector: title
+    description:
+      selector: original_title
+    details:
+      selector: details
+    infohash:
+      selector: info_hash
+    date:
+      selector: date
+    size:
+      selector: size
+    seeders:
+      selector: seed_count
+    leechers:
+      selector: leech_count
+    imdb:
+      selector: imdb
+    category_is_tv_show:
+      selector: title
+      filters:
+        - name: regexp
+          args: "\\b(S\\d+(?:E\\d+)?)\\b"
+    category:
+      text: "{{ if .Result.category_is_tv_show }}TV{{ else }}Movies{{ end }}"
+```
 
 # Warning
 
