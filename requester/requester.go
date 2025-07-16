@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/felipemarinho97/torrent-indexer/cache"
+	"github.com/felipemarinho97/torrent-indexer/utils"
 )
 
 const (
@@ -77,8 +78,8 @@ func (i *Requster) GetDocument(ctx context.Context, url string) (io.ReadCloser, 
 		fmt.Printf("request served from plain client: %s\n", url)
 	}
 
-	// save response to cache if it's not a challange and body is not empty
-	if !hasChallange(bodyByte) && len(bodyByte) > 0 {
+	// save response to cache if it's not a challange, body is not empty and is valid HTML
+	if !hasChallange(bodyByte) && len(bodyByte) > 0 && utils.IsValidHTML(string(bodyByte)) {
 		err = i.c.SetWithExpiration(ctx, key, bodyByte, i.shortLivedCacheExpiration)
 		if err != nil {
 			fmt.Printf("failed to save response to cache: %v\n", err)
