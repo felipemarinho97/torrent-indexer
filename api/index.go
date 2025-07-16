@@ -77,6 +77,17 @@ func HandlerIndex(w http.ResponseWriter, r *http.Request) {
 					},
 				},
 			},
+			"/indexers/comandohds": []map[string]interface{}{
+				{
+					"method":      "GET",
+					"page":        "page number",
+					"description": "Indexer for Comando HDs",
+					"query_params": map[string]string{
+						"q":              "search query",
+						"filter_results": "if results with similarity equals to zero should be filtered (true/false)",
+					},
+				},
+			},
 			"/indexers/starck-filmes": []map[string]interface{}{
 				{
 					"method":      "GET",
