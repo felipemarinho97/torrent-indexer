@@ -152,6 +152,22 @@ func getTorrentsBluDV(ctx context.Context, i *Indexer, link string) ([]schema.In
 		magnetLinks = append(magnetLinks, magnetLink)
 	})
 
+	adwareLinks := textContent.Find("a[href^=\"https://www.seuvideo.xyz\"]")
+	adwareLinks.Each(func(_ int, s *goquery.Selection) {
+		href, _ := s.Attr("href")
+		// extract querysting "id" from url
+		parsedUrl, err := url.Parse(href)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		magnetLink := parsedUrl.Query().Get("id")
+		magnetLinkDecoded, err := utils.DecodeAdLink(magnetLink)
+		if err == nil {
+			magnetLinks = append(magnetLinks, magnetLinkDecoded)
+		}
+	})
+
 	var audio []schema.Audio
 	var year string
 	var size []string
