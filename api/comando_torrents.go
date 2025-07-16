@@ -364,7 +364,7 @@ func findYearFromText(text string, title string) (year string) {
 			year = yearMatch[1]
 		}
 	}
-	return year
+	return strings.TrimSpace(year)
 }
 
 func findAudioFromText(text string) []schema.Audio {
