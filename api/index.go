@@ -22,6 +22,8 @@ type Indexer struct {
 type IndexerMeta struct {
 	URL       string
 	SearchURL string
+	// pattern for pagination, e.g. "page/%s"
+	PagePattern string
 }
 
 type Response struct {
@@ -99,6 +101,17 @@ func HandlerIndex(w http.ResponseWriter, r *http.Request) {
 					},
 				},
 			},
+			"/indexers/rede_torrent": []map[string]interface{}{
+				{
+					"method":      "GET",
+					"description": "Indexer for rede torrent",
+					"query_params": map[string]string{
+						"q":              "search query",
+						"page":           "page number",
+						"filter_results": "if results with similarity equals to zero should be filtered (true/false)",
+					},
+				},
+			},
 			"/indexers/manual": []map[string]interface{}{
 				{
 					"method":      "POST",
@@ -118,6 +131,12 @@ func HandlerIndex(w http.ResponseWriter, r *http.Request) {
 					"query_params": map[string]string{
 						"q": "search query",
 					},
+				},
+			},
+			"/ui/": []map[string]interface{}{
+				{
+					"method":      "GET",
+					"description": "Show the unified search UI (only work if Meilisearch is enabled)",
 				},
 			},
 		},

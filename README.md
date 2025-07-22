@@ -13,6 +13,7 @@ Visit [https://torrent-indexer.darklyn.org/](https://torrent-indexer.darklyn.org
 - [torrent-dos-filmes](https://torrentdosfilmes.se/)
 - [starck-filmes](https://www.starckfilmes.online/)
 - [comandohds](https://comandohds.org/)
+- [rede-torrent](https://redetorrent.com/)
 
 ## Deploy
 
