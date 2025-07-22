@@ -231,19 +231,7 @@ func getTorrentsBluDV(ctx context.Context, i *Indexer, link string) ([]schema.In
 			releaseTitle := magnet.DisplayName
 			infoHash := magnet.InfoHash.String()
 			trackers := magnet.Trackers
-			magnetAudio := []schema.Audio{}
-			if strings.Contains(strings.ToLower(releaseTitle), "dual") || strings.Contains(strings.ToLower(releaseTitle), "dublado") {
-				magnetAudio = append(magnetAudio, audio...)
-			} else if len(audio) > 1 {
-				// remove portuguese audio, and append to magnetAudio
-				for _, a := range audio {
-					if a != schema.AudioPortuguese {
-						magnetAudio = append(magnetAudio, a)
-					}
-				}
-			} else {
-				magnetAudio = append(magnetAudio, audio...)
-			}
+			magnetAudio := getAudioFromTitle(releaseTitle, audio)
 
 			peer, seed, err := goscrape.GetLeechsAndSeeds(ctx, i.redis, i.metrics, infoHash, trackers)
 			if err != nil {

@@ -1,11 +1,9 @@
 package handler
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -14,38 +12,25 @@ import (
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/hbollon/go-edlib"
+
 	"github.com/felipemarinho97/torrent-indexer/magnet"
 	"github.com/felipemarinho97/torrent-indexer/schema"
 	goscrape "github.com/felipemarinho97/torrent-indexer/scrape"
 	"github.com/felipemarinho97/torrent-indexer/utils"
-	"github.com/hbollon/go-edlib"
 )
 
-var comando = IndexerMeta{
-	URL:       "https://comando.la/",
-	SearchURL: "?s=",
+var rede_torrent = IndexerMeta{
+	URL:         "https://redetorrent.com/",
+	SearchURL:   "index.php?s=",
+	PagePattern: "%s",
 }
 
-var replacer = strings.NewReplacer(
-	"janeiro", "01",
-	"fevereiro", "02",
-	"março", "03",
-	"abril", "04",
-	"maio", "05",
-	"junho", "06",
-	"julho", "07",
-	"agosto", "08",
-	"setembro", "09",
-	"outubro", "10",
-	"novembro", "11",
-	"dezembro", "12",
-)
-
-func (i *Indexer) HandlerComandoIndexer(w http.ResponseWriter, r *http.Request) {
+func (i *Indexer) HandlerRedeTorrentIndexer(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 	defer func() {
-		i.metrics.IndexerDuration.WithLabelValues("comando").Observe(time.Since(start).Seconds())
-		i.metrics.IndexerRequests.WithLabelValues("comando").Inc()
+		i.metrics.IndexerDuration.WithLabelValues("rede_torrent").Observe(time.Since(start).Seconds())
+		i.metrics.IndexerRequests.WithLabelValues("rede_torrent").Inc()
 	}()
 
 	ctx := r.Context()
@@ -55,11 +40,11 @@ func (i *Indexer) HandlerComandoIndexer(w http.ResponseWriter, r *http.Request) 
 
 	// URL encode query param
 	q = url.QueryEscape(q)
-	url := comando.URL
+	url := rede_torrent.URL
 	if q != "" {
-		url = fmt.Sprintf("%s%s%s", url, comando.SearchURL, q)
+		url = fmt.Sprintf("%s%s%s", url, rede_torrent.SearchURL, q)
 	} else if page != "" {
-		url = fmt.Sprintf("%spage/%s", url, page)
+		url = fmt.Sprintf(fmt.Sprintf("%s%s", url, rede_torrent.PagePattern), page)
 	}
 
 	fmt.Println("URL:>", url)
@@ -70,7 +55,7 @@ func (i *Indexer) HandlerComandoIndexer(w http.ResponseWriter, r *http.Request) 
 		if err != nil {
 			fmt.Println(err)
 		}
-		i.metrics.IndexerErrors.WithLabelValues("comando").Inc()
+		i.metrics.IndexerErrors.WithLabelValues("rede_torrent").Inc()
 		return
 	}
 	defer resp.Close()
@@ -82,14 +67,14 @@ func (i *Indexer) HandlerComandoIndexer(w http.ResponseWriter, r *http.Request) 
 		if err != nil {
 			fmt.Println(err)
 		}
-		i.metrics.IndexerErrors.WithLabelValues("comando").Inc()
+
+		i.metrics.IndexerErrors.WithLabelValues("rede_torrent").Inc()
 		return
 	}
 
 	var links []string
-	doc.Find("article").Each(func(i int, s *goquery.Selection) {
-		// get link from h2.entry-title > a
-		link, _ := s.Find("h2.entry-title > a").Attr("href")
+	doc.Find(".capa_lista").Each(func(i int, s *goquery.Selection) {
+		link, _ := s.Find("a").Attr("href")
 		links = append(links, link)
 	})
 
@@ -98,7 +83,7 @@ func (i *Indexer) HandlerComandoIndexer(w http.ResponseWriter, r *http.Request) 
 	indexedTorrents := []schema.IndexedTorrent{}
 	for _, link := range links {
 		go func(link string) {
-			torrents, err := getTorrents(ctx, i, link)
+			torrents, err := getTorrentsRedeTorrent(ctx, i, link)
 			if err != nil {
 				fmt.Println(err)
 				errChan <- err
@@ -150,24 +135,25 @@ func (i *Indexer) HandlerComandoIndexer(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
-func getTorrents(ctx context.Context, i *Indexer, link string) ([]schema.IndexedTorrent, error) {
+func getTorrentsRedeTorrent(ctx context.Context, i *Indexer, link string) ([]schema.IndexedTorrent, error) {
 	var indexedTorrents []schema.IndexedTorrent
 	doc, err := getDocument(ctx, i, link)
 	if err != nil {
 		return nil, err
 	}
 
-	article := doc.Find("article")
-	title := strings.Replace(article.Find(".entry-title").Text(), " - Download", "", -1)
-	textContent := article.Find("div.entry-content")
-	// div itemprop="datePublished"
-	datePublished := strings.TrimSpace(article.Find("div[itemprop=\"datePublished\"]").Text())
-	// pattern: 10 de setembro de 2021
-	date, err := parseLocalizedDate(datePublished)
-	if err != nil {
-		return nil, err
+	article := doc.Find(".conteudo")
+	// title pattern: "Something - optional balbla (dddd) some shit" - extract "Something" and "dddd"
+	titleRe := regexp.MustCompile(`^(.*?)(?: - (.*?))? \((\d{4})\)`)
+	titleP := titleRe.FindStringSubmatch(article.Find("h1").Text())
+	if len(titleP) < 3 {
+		return nil, fmt.Errorf("could not extract title from %s", link)
 	}
+	title := strings.TrimSpace(titleP[1])
+	year := strings.TrimSpace(titleP[3])
 
+	textContent := article.Find(".apenas_itemprop")
+	date := getPublishedDateFromMeta(doc)
 	magnets := textContent.Find("a[href^=\"magnet\"]")
 	var magnetLinks []string
 	magnets.Each(func(i int, s *goquery.Selection) {
@@ -176,33 +162,54 @@ func getTorrents(ctx context.Context, i *Indexer, link string) ([]schema.Indexed
 	})
 
 	var audio []schema.Audio
-	var year string
 	var size []string
-	article.Find("div.entry-content > p").Each(func(i int, s *goquery.Selection) {
+	article.Find("div#informacoes > p").Each(func(i int, s *goquery.Selection) {
 		// pattern:
-		// Título Traduzido: Fundação
-		// Título Original: Foundation
-		// IMDb: 7,5
-		// Ano de Lançamento: 2023
-		// Gênero: Ação | Aventura | Ficção
-		// Formato: MKV
-		// Qualidade: WEB-DL
-		// Áudio: Português | Inglês
-		// Idioma: Português | Inglês
-		// Legenda: Português
-		// Tamanho: –
-		// Qualidade de Áudio: 10
-		// Qualidade de Vídeo: 10
-		// Duração: 59 Min.
-		// Servidor: Torrent
-		text := s.Text()
+		// Filme Bicho de Sete Cabeças Torrent
+		// Título Original: Bicho de Sete Cabeças
+		// Lançamento: 2001
+		// Gêneros: Drama / Nacional
+		// Idioma: Português
+		// Qualidade: 720p / BluRay
+		// Duração: 1h 14 Minutos
+		// Formato: Mp4
+		// Vídeo: 10 e Áudio: 10
+		// Legendas: Português
+		// Nota do Imdb: 7.7
+		// Tamanho: 1.26 GB
 
-		audio = append(audio, findAudioFromText(text)...)
-		y := findYearFromText(text, title)
+		// we need to manualy parse because the text is not well formatted
+		htmlContent, err := s.Html()
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+
+		// remove any \n and \t characters
+		htmlContent = strings.ReplaceAll(htmlContent, "\n", "")
+		htmlContent = strings.ReplaceAll(htmlContent, "\t", "")
+
+		// split by <br> tags and render each line
+		brRe := regexp.MustCompile(`<br\s*\/?>`)
+		htmlContent = brRe.ReplaceAllString(htmlContent, "<br>")
+		lines := strings.Split(htmlContent, "<br>")
+
+		var text strings.Builder
+		for _, line := range lines {
+			// remove any HTML tags
+			re := regexp.MustCompile(`<[^>]*>`)
+			line = re.ReplaceAllString(line, "")
+
+			line = strings.TrimSpace(line)
+			text.WriteString(line + "\n")
+		}
+
+		audio = append(audio, findAudioFromText(text.String())...)
+		y := findYearFromText(text.String(), title)
 		if y != "" {
 			year = y
 		}
-		size = append(size, findSizesFromText(text)...)
+		size = append(size, findSizesFromText(text.String())...)
 	})
 
 	// find any link from imdb
@@ -270,105 +277,4 @@ func getTorrents(ctx context.Context, i *Indexer, link string) ([]schema.Indexed
 	}
 
 	return indexedTorrents, nil
-}
-
-func parseLocalizedDate(datePublished string) (time.Time, error) {
-	re := regexp.MustCompile(`(\d{1,2}) de (\w+) de (\d{4})`)
-	matches := re.FindStringSubmatch(datePublished)
-	if len(matches) > 0 {
-		day := matches[1]
-		// append 0 to single digit day
-		if len(day) == 1 {
-			day = fmt.Sprintf("0%s", day)
-		}
-		month := matches[2]
-		year := matches[3]
-		datePublished = fmt.Sprintf("%s-%s-%s", year, replacer.Replace(month), day)
-		date, err := time.Parse("2006-01-02", datePublished)
-		if err != nil {
-			return time.Time{}, err
-		}
-		return date, nil
-	}
-	return time.Time{}, nil
-}
-
-func stableUniq(s []string) []string {
-	var uniq []map[string]interface{}
-	m := make(map[string]map[string]interface{})
-	for i, v := range s {
-		m[v] = map[string]interface{}{
-			"v": v,
-			"i": i,
-		}
-	}
-	// to order by index
-	for _, v := range m {
-		uniq = append(uniq, v)
-	}
-
-	// sort by index
-	for i := 0; i < len(uniq); i++ {
-		for j := i + 1; j < len(uniq); j++ {
-			if uniq[i]["i"].(int) > uniq[j]["i"].(int) {
-				uniq[i], uniq[j] = uniq[j], uniq[i]
-			}
-		}
-	}
-
-	// get only values
-	var uniqValues []string
-	for _, v := range uniq {
-		uniqValues = append(uniqValues, v["v"].(string))
-	}
-
-	return uniqValues
-}
-
-func processTitle(title string, a []schema.Audio) string {
-	// remove ' - Donwload' from title
-	title = strings.Replace(title, " – Download", "", -1)
-
-	// remove 'comando.la' from title
-	title = strings.Replace(title, "comando.la", "", -1)
-
-	// add audio ISO 639-2 code to title between ()
-	title = appendAudioISO639_2Code(title, a)
-
-	return title
-}
-
-func getDocument(ctx context.Context, i *Indexer, link string) (*goquery.Document, error) {
-	// try to get from redis first
-	docCache, err := i.redis.Get(ctx, link)
-	if err == nil {
-		i.metrics.CacheHits.WithLabelValues("document_body").Inc()
-		fmt.Printf("returning from long-lived cache: %s\n", link)
-		return goquery.NewDocumentFromReader(io.NopCloser(bytes.NewReader(docCache)))
-	}
-	defer i.metrics.CacheMisses.WithLabelValues("document_body").Inc()
-
-	resp, err := i.requester.GetDocument(ctx, link)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Close()
-
-	body, err := io.ReadAll(resp)
-	if err != nil {
-		return nil, err
-	}
-
-	// set cache
-	err = i.redis.Set(ctx, link, body)
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	doc, err := goquery.NewDocumentFromReader(io.NopCloser(bytes.NewReader(body)))
-	if err != nil {
-		return nil, err
-	}
-
-	return doc, nil
 }

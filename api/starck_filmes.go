@@ -140,6 +140,8 @@ func getTorrentStarckFilmes(ctx context.Context, i *Indexer, link string) ([]sch
 		return nil, err
 	}
 
+	date := getPublishedDateFromRawString(link)
+
 	post := doc.Find(".post")
 	capa := post.Find(".capa")
 	title := capa.Find(".post-description > h2").Text()
@@ -161,17 +163,16 @@ func getTorrentStarckFilmes(ctx context.Context, i *Indexer, link string) ([]sch
 		// Duração: 1h 40 min
 		// Gênero: Terror, Suspense, Ficção
 		// Formato: MKV
-		// Tamanho: 2.45 GB 
+		// Tamanho: 2.45 GB
 		// Qualidade de Video: 10
 		// Qualidade do Audio: 10
 		// Idioma: Português | Inglês
 		// Legenda: Português, Inglês, Espanhol
 		var text strings.Builder
-		s.Find("span").Each(func (i int, span *goquery.Selection) {
+		s.Find("span").Each(func(i int, span *goquery.Selection) {
 			text.WriteString(span.Text())
 			text.WriteString(" ")
 		})
-		fmt.Println(text.String())
 		audio = append(audio, findAudioFromText(text.String())...)
 		y := findYearFromText(text.String(), title)
 		if y != "" {
@@ -195,22 +196,23 @@ func getTorrentStarckFilmes(ctx context.Context, i *Indexer, link string) ([]sch
 			if err != nil {
 				fmt.Println(err)
 			}
-			releaseTitle := magnet.DisplayName
+			releaseTitle := strings.TrimSpace(magnet.DisplayName)
+			// url decode the title
+			releaseTitle, err = url.QueryUnescape(releaseTitle)
+			if err != nil {
+				fmt.Println(err)
+				releaseTitle = strings.TrimSpace(magnet.DisplayName)
+			}
 			infoHash := magnet.InfoHash.String()
 			trackers := magnet.Trackers
-			magnetAudio := []schema.Audio{}
-			if strings.Contains(strings.ToLower(releaseTitle), "dual") || strings.Contains(strings.ToLower(releaseTitle), "dublado") {
-				magnetAudio = append(magnetAudio, audio...)
-			} else if len(audio) > 1 {
-				// remove portuguese audio, and append to magnetAudio
-				for _, a := range audio {
-					if a != schema.AudioPortuguese {
-						magnetAudio = append(magnetAudio, a)
-					}
+			for i, tracker := range trackers {
+				unescapedTracker, err := url.QueryUnescape(tracker)
+				if err != nil {
+					fmt.Println(err)
 				}
-			} else {
-				magnetAudio = append(magnetAudio, audio...)
+				trackers[i] = strings.TrimSpace(unescapedTracker)
 			}
+			magnetAudio := getAudioFromTitle(releaseTitle, audio)
 
 			peer, seed, err := goscrape.GetLeechsAndSeeds(ctx, i.redis, i.metrics, infoHash, trackers)
 			if err != nil {
@@ -233,7 +235,7 @@ func getTorrentStarckFilmes(ctx context.Context, i *Indexer, link string) ([]sch
 				IMDB:          imdbLink,
 				Audio:         magnetAudio,
 				MagnetLink:    magnetLink,
-				Date:		   time.Now(),
+				Date:          date,
 				InfoHash:      infoHash,
 				Trackers:      trackers,
 				LeechCount:    peer,

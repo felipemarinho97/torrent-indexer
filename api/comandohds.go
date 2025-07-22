@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"regexp"
 	"slices"
 	"strings"
 	"time"
-	"regexp"
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/hbollon/go-edlib"
@@ -146,7 +146,7 @@ func getTorrentsComandoHDs(ctx context.Context, i *Indexer, link string) ([]sche
 	article := doc.Find("article")
 	title := title_re.ReplaceAllString(article.Find(".main_title > h1").Text(), "")
 	textContent := article.Find("div.content")
-	date := getPublishedDateTDF(doc)
+	date := getPublishedDateFromMeta(doc)
 	magnets := textContent.Find("a[href^=\"magnet\"]")
 	var magnetLinks []string
 	magnets.Each(func(i int, s *goquery.Selection) {
@@ -205,22 +205,14 @@ func getTorrentsComandoHDs(ctx context.Context, i *Indexer, link string) ([]sche
 			if err != nil {
 				fmt.Println(err)
 			}
-			releaseTitle := magnet.DisplayName
+			releaseTitle := strings.TrimSpace(magnet.DisplayName)
 			infoHash := magnet.InfoHash.String()
 			trackers := magnet.Trackers
-			magnetAudio := []schema.Audio{}
-			if strings.Contains(strings.ToLower(releaseTitle), "dual") || strings.Contains(strings.ToLower(releaseTitle), "dublado") {
-				magnetAudio = append(magnetAudio, audio...)
-			} else if len(audio) > 1 {
-				// remove portuguese audio, and append to magnetAudio
-				for _, a := range audio {
-					if a != schema.AudioPortuguese {
-						magnetAudio = append(magnetAudio, a)
-					}
-				}
-			} else {
-				magnetAudio = append(magnetAudio, audio...)
+			for i, tracker := range trackers {
+				trackers[i] = strings.TrimSpace(tracker)
 			}
+
+			magnetAudio := getAudioFromTitle(releaseTitle, audio)
 
 			peer, seed, err := goscrape.GetLeechsAndSeeds(ctx, i.redis, i.metrics, infoHash, trackers)
 			if err != nil {
