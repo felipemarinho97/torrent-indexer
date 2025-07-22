@@ -45,7 +45,7 @@ func Test_findAudioFromText(t *testing.T) {
 			},
 		},
 		{
-			name: "should return audio in portuguese",
+			name: "should return audio in portuguese - comando_torrents",
 			args: args{
 				text: `
 »INFORMAÇÕES«
@@ -67,6 +67,49 @@ Servidor Via: Torrent
 			},
 			want: []schema.Audio{
 				schema.AudioPortuguese,
+			},
+		},
+		{
+			name: "should return audio in portuguese - rede torrent",
+			args: args{
+				text: `
+Filme Bicho de Sete Cabeças Torrent
+Título Original: Bicho de Sete Cabeças
+Lançamento: 2001
+Gêneros: Drama / Nacional
+Idioma: Português
+Qualidade: 720p / BluRay
+Duração: 1h 14 Minutos
+Formato: Mp4
+Vídeo: 10 e Áudio: 10
+Legendas: Português
+Nota do Imdb: 7.7
+Tamanho: 1.26 GB
+				`,
+			},
+			want: []schema.Audio{
+				schema.AudioPortuguese,
+			},
+		},
+		{
+			name: "should return audio in portuguese - rede torrent 2",
+			args: args{
+				text: `
+Filme Branca de Neve e o Caçador Torrent / Assistir Online
+Título Original: Snow White and the Huntsman
+Lançamento: 2012
+Gêneros: Ação / Aventura / Fantasia
+Idioma: Português / Inglês
+Duração: 126 Minutos
+Formato: Mkv / Mp4
+Vídeo: 10 e Áudio: 10
+Legendas: Sim
+Tamanho: 2.69 GB / 1.95 GB / 1.0 GB
+				`,
+			},
+			want: []schema.Audio{
+				schema.AudioPortuguese,
+				schema.AudioEnglish,
 			},
 		},
 	}

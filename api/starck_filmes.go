@@ -140,6 +140,8 @@ func getTorrentStarckFilmes(ctx context.Context, i *Indexer, link string) ([]sch
 		return nil, err
 	}
 
+	date := getPublishedDateFromRawString(link)
+
 	post := doc.Find(".post")
 	capa := post.Find(".capa")
 	title := capa.Find(".post-description > h2").Text()
@@ -161,13 +163,13 @@ func getTorrentStarckFilmes(ctx context.Context, i *Indexer, link string) ([]sch
 		// Duração: 1h 40 min
 		// Gênero: Terror, Suspense, Ficção
 		// Formato: MKV
-		// Tamanho: 2.45 GB 
+		// Tamanho: 2.45 GB
 		// Qualidade de Video: 10
 		// Qualidade do Audio: 10
 		// Idioma: Português | Inglês
 		// Legenda: Português, Inglês, Espanhol
 		var text strings.Builder
-		s.Find("span").Each(func (i int, span *goquery.Selection) {
+		s.Find("span").Each(func(i int, span *goquery.Selection) {
 			text.WriteString(span.Text())
 			text.WriteString(" ")
 		})
@@ -233,7 +235,7 @@ func getTorrentStarckFilmes(ctx context.Context, i *Indexer, link string) ([]sch
 				IMDB:          imdbLink,
 				Audio:         magnetAudio,
 				MagnetLink:    magnetLink,
-				Date:		   time.Now(),
+				Date:          date,
 				InfoHash:      infoHash,
 				Trackers:      trackers,
 				LeechCount:    peer,

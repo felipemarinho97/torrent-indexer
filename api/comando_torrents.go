@@ -284,19 +284,6 @@ func getTorrents(ctx context.Context, i *Indexer, link string) ([]schema.Indexed
 	return indexedTorrents, nil
 }
 
-func getIMDBLink(link string) (string, error) {
-	var imdbLink string
-	re := regexp.MustCompile(`https://www.imdb.com(/[a-z]{2})?/title/(tt\d+)/?`)
-
-	matches := re.FindStringSubmatch(link)
-	if len(matches) > 0 {
-		imdbLink = matches[0]
-	} else {
-		return "", fmt.Errorf("no imdb link found")
-	}
-	return imdbLink, nil
-}
-
 func parseLocalizedDate(datePublished string) (time.Time, error) {
 	re := regexp.MustCompile(`(\d{1,2}) de (\w+) de (\d{4})`)
 	matches := re.FindStringSubmatch(datePublished)
@@ -350,56 +337,6 @@ func stableUniq(s []string) []string {
 	return uniqValues
 }
 
-func findYearFromText(text string, title string) (year string) {
-	re := regexp.MustCompile(`Lançamento: (.*)`)
-	yearMatch := re.FindStringSubmatch(text)
-	if len(yearMatch) > 0 {
-		year = yearMatch[1]
-	}
-
-	if year == "" {
-		re = regexp.MustCompile(`\((\d{4})\)`)
-		yearMatch := re.FindStringSubmatch(title)
-		if len(yearMatch) > 0 {
-			year = yearMatch[1]
-		}
-	}
-	return strings.TrimSpace(year)
-}
-
-func findAudioFromText(text string) []schema.Audio {
-	var audio []schema.Audio
-	re := regexp.MustCompile(`(.udio|Idioma):.?(.*)`)
-	audioMatch := re.FindStringSubmatch(text)
-	if len(audioMatch) > 0 {
-		sep := getSeparator(audioMatch[2])
-		langs_raw := strings.Split(audioMatch[2], sep)
-		for _, lang := range langs_raw {
-			lang = strings.TrimSpace(lang)
-			a := schema.GetAudioFromString(lang)
-			if a != nil {
-				audio = append(audio, *a)
-			} else {
-				fmt.Println("unknown language:", lang)
-			}
-		}
-	}
-	return audio
-}
-
-func findSizesFromText(text string) []string {
-	var sizes []string
-	// everything that ends with GB or MB, using ',' or '.' as decimal separator
-	re := regexp.MustCompile(`(\d+[\.,]?\d+) ?(GB|MB)`)
-	sizesMatch := re.FindAllStringSubmatch(text, -1)
-	if len(sizesMatch) > 0 {
-		for _, size := range sizesMatch {
-			sizes = append(sizes, size[0])
-		}
-	}
-	return sizes
-}
-
 func processTitle(title string, a []schema.Audio) string {
 	// remove ' - Donwload' from title
 	title = strings.Replace(title, " – Download", "", -1)
@@ -422,15 +359,6 @@ func appendAudioISO639_2Code(title string, a []schema.Audio) string {
 		title = fmt.Sprintf("%s (%s)", title, strings.Join(audio, ", "))
 	}
 	return title
-}
-
-func getSeparator(s string) string {
-	if strings.Contains(s, "|") {
-		return "|"
-	} else if strings.Contains(s, ",") {
-		return ","
-	}
-	return " "
 }
 
 func getDocument(ctx context.Context, i *Indexer, link string) (*goquery.Document, error) {

@@ -143,7 +143,7 @@ func getTorrentsTorrentDosFilmes(ctx context.Context, i *Indexer, link string) (
 	article := doc.Find("article")
 	title := strings.Replace(article.Find(".title > h1").Text(), " - Download", "", -1)
 	textContent := article.Find("div.content")
-	date := getPublishedDateTDF(doc)
+	date := getPublishedDateFromMeta(doc)
 	magnets := textContent.Find("a[href^=\"magnet\"]")
 	var magnetLinks []string
 	magnets.Each(func(i int, s *goquery.Selection) {
@@ -258,16 +258,4 @@ func getTorrentsTorrentDosFilmes(ctx context.Context, i *Indexer, link string) (
 	}
 
 	return indexedTorrents, nil
-}
-
-func getPublishedDateTDF(document *goquery.Document) time.Time {
-	var date time.Time
-	//<meta property="article:published_time" content="2019-08-23T13:20:57+00:00">
-	datePublished := strings.TrimSpace(document.Find("meta[property=\"article:published_time\"]").AttrOr("content", ""))
-
-	if datePublished != "" {
-		date, _ = time.Parse(time.RFC3339, datePublished)
-	}
-
-	return date
 }

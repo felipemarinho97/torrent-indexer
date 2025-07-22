@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"regexp"
 	"slices"
 	"strings"
 	"time"
-	"regexp"
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/hbollon/go-edlib"
@@ -146,7 +146,7 @@ func getTorrentsComandoHDs(ctx context.Context, i *Indexer, link string) ([]sche
 	article := doc.Find("article")
 	title := title_re.ReplaceAllString(article.Find(".main_title > h1").Text(), "")
 	textContent := article.Find("div.content")
-	date := getPublishedDateTDF(doc)
+	date := getPublishedDateFromMeta(doc)
 	magnets := textContent.Find("a[href^=\"magnet\"]")
 	var magnetLinks []string
 	magnets.Each(func(i int, s *goquery.Selection) {
