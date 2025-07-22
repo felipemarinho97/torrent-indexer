@@ -3,6 +3,7 @@ package handler
 import (
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -134,4 +135,53 @@ func getIMDBLink(link string) (string, error) {
 		return "", fmt.Errorf("no imdb link found")
 	}
 	return imdbLink, nil
+}
+
+// appendAudioISO639_2Code appends the audio languages to the title in ISO 639-2 code format.
+// It formats the title to include the audio languages in parentheses.
+// Example: "Movie Title (eng, por)"
+func appendAudioISO639_2Code(title string, a []schema.Audio) string {
+	if len(a) > 0 {
+		audio := []string{}
+		for _, lang := range a {
+			audio = append(audio, lang.String())
+		}
+		title = fmt.Sprintf("%s (%s)", title, strings.Join(audio, ", "))
+	}
+	return title
+}
+
+// getAudioFromTitle extracts audio languages from the release title.
+// It checks for common patterns like "nacional", "dual", or "dublado"
+func getAudioFromTitle(releaseTitle string, audioFromContent []schema.Audio) []schema.Audio {
+	magnetAudio := []schema.Audio{}
+	isNacional := strings.Contains(strings.ToLower(releaseTitle), "nacional")
+	if isNacional {
+		magnetAudio = append(magnetAudio, schema.AudioPortuguese)
+	}
+
+	if strings.Contains(strings.ToLower(releaseTitle), "dual") || strings.Contains(strings.ToLower(releaseTitle), "dublado") {
+		magnetAudio = append(magnetAudio, audioFromContent...)
+		// if Portuguese audio is not in the audio slice, append it
+		if !slices.Contains(magnetAudio, schema.AudioPortuguese) {
+			magnetAudio = append(magnetAudio, schema.AudioPortuguese)
+		}
+	} else if len(audioFromContent) > 1 {
+		// remove portuguese audio, and append to magnetAudio
+		for _, a := range audioFromContent {
+			if a != schema.AudioPortuguese {
+				magnetAudio = append(magnetAudio, a)
+			}
+		}
+	} else {
+		magnetAudio = append(magnetAudio, audioFromContent...)
+	}
+
+	// order and uniq the audio slice
+	slices.SortFunc(magnetAudio, func(a, b schema.Audio) int {
+		return strings.Compare(a.String(), b.String())
+	})
+	magnetAudio = slices.Compact(magnetAudio)
+
+	return magnetAudio
 }
