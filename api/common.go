@@ -22,16 +22,31 @@ func getPublishedDateFromMeta(document *goquery.Document) time.Time {
 	return date
 }
 
+type datePattern struct {
+	regex  *regexp.Regexp
+	layout string
+}
+
+var datePatterns = []datePattern{
+	{regexp.MustCompile(`\d{4}-\d{2}-\d{2}`), "2006-01-02"},
+	{regexp.MustCompile(`\d{2}-\d{2}-\d{4}`), "02-01-2006"},
+	{regexp.MustCompile(`\d{2}/\d{2}/\d{4}`), "02/01/2006"},
+}
+
+// getPublishedDateFromRawString extracts the date from a raw string using predefined patterns.
 func getPublishedDateFromRawString(dateStr string) time.Time {
-	// Patterns: 2025-01-01, 01-01-2025, 01/01/2025
-	date, err := time.Parse("2006-01-02", dateStr)
-	if err != nil {
-		date, err = time.Parse("02-01-2006", dateStr)
-		if err != nil {
-			date, _ = time.Parse("02/01/2006", dateStr)
+	for _, p := range datePatterns {
+		match := p.regex.FindString(dateStr)
+
+		if match != "" {
+			date, err := time.Parse(p.layout, match)
+			if err == nil {
+				return date.UTC()
+			}
 		}
 	}
-	return date
+
+	return time.Time{}
 }
 
 // getSeparator returns the separator used in the string.

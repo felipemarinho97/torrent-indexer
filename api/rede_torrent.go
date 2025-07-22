@@ -238,6 +238,11 @@ func getTorrentsRedeTorrent(ctx context.Context, i *Indexer, link string) ([]sch
 			infoHash := magnet.InfoHash.String()
 			trackers := magnet.Trackers
 			magnetAudio := []schema.Audio{}
+			isNacional := strings.Contains(strings.ToLower(releaseTitle), "nacional")
+			if isNacional {
+				magnetAudio = append(magnetAudio, schema.AudioPortuguese)
+			}
+
 			if strings.Contains(strings.ToLower(releaseTitle), "dual") || strings.Contains(strings.ToLower(releaseTitle), "dublado") {
 				magnetAudio = append(magnetAudio, audio...)
 				// if Portuguese audio is not in the audio slice, append it

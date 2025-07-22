@@ -173,7 +173,6 @@ func getTorrentStarckFilmes(ctx context.Context, i *Indexer, link string) ([]sch
 			text.WriteString(span.Text())
 			text.WriteString(" ")
 		})
-		fmt.Println(text.String())
 		audio = append(audio, findAudioFromText(text.String())...)
 		y := findYearFromText(text.String(), title)
 		if y != "" {
@@ -197,10 +196,28 @@ func getTorrentStarckFilmes(ctx context.Context, i *Indexer, link string) ([]sch
 			if err != nil {
 				fmt.Println(err)
 			}
-			releaseTitle := magnet.DisplayName
+			releaseTitle := strings.TrimSpace(magnet.DisplayName)
+			// url decode the title
+			releaseTitle, err = url.QueryUnescape(releaseTitle)
+			if err != nil {
+				fmt.Println(err)
+				releaseTitle = strings.TrimSpace(magnet.DisplayName)
+			}
 			infoHash := magnet.InfoHash.String()
 			trackers := magnet.Trackers
+			for i, tracker := range trackers {
+				unescapedTracker, err := url.QueryUnescape(tracker)
+				if err != nil {
+					fmt.Println(err)
+				}
+				trackers[i] = strings.TrimSpace(unescapedTracker)
+			}
 			magnetAudio := []schema.Audio{}
+			isNacional := strings.Contains(strings.ToLower(releaseTitle), "nacional")
+			if isNacional {
+				magnetAudio = append(magnetAudio, schema.AudioPortuguese)
+			}
+
 			if strings.Contains(strings.ToLower(releaseTitle), "dual") || strings.Contains(strings.ToLower(releaseTitle), "dublado") {
 				magnetAudio = append(magnetAudio, audio...)
 				// if Portuguese audio is not in the audio slice, append it
