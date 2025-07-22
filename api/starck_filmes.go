@@ -203,6 +203,10 @@ func getTorrentStarckFilmes(ctx context.Context, i *Indexer, link string) ([]sch
 			magnetAudio := []schema.Audio{}
 			if strings.Contains(strings.ToLower(releaseTitle), "dual") || strings.Contains(strings.ToLower(releaseTitle), "dublado") {
 				magnetAudio = append(magnetAudio, audio...)
+				// if Portuguese audio is not in the audio slice, append it
+				if !slices.Contains(magnetAudio, schema.AudioPortuguese) {
+					magnetAudio = append(magnetAudio, schema.AudioPortuguese)
+				}
 			} else if len(audio) > 1 {
 				// remove portuguese audio, and append to magnetAudio
 				for _, a := range audio {
