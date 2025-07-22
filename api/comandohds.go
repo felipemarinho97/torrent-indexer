@@ -205,12 +205,20 @@ func getTorrentsComandoHDs(ctx context.Context, i *Indexer, link string) ([]sche
 			if err != nil {
 				fmt.Println(err)
 			}
-			releaseTitle := magnet.DisplayName
+			releaseTitle := strings.TrimSpace(magnet.DisplayName)
 			infoHash := magnet.InfoHash.String()
 			trackers := magnet.Trackers
+			for i, tracker := range trackers {
+				trackers[i] = strings.TrimSpace(tracker)
+			}
+
 			magnetAudio := []schema.Audio{}
 			if strings.Contains(strings.ToLower(releaseTitle), "dual") || strings.Contains(strings.ToLower(releaseTitle), "dublado") {
 				magnetAudio = append(magnetAudio, audio...)
+				// if Portuguese audio is not in the audio slice, append it
+				if !slices.Contains(magnetAudio, schema.AudioPortuguese) {
+					magnetAudio = append(magnetAudio, schema.AudioPortuguese)
+				}
 			} else if len(audio) > 1 {
 				// remove portuguese audio, and append to magnetAudio
 				for _, a := range audio {
