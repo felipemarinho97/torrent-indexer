@@ -54,6 +54,8 @@ func main() {
 	indexerMux.HandleFunc("/indexers/torrent-dos-filmes", indexers.HandlerTorrentDosFilmesIndexer)
 	indexerMux.HandleFunc("/indexers/manual", indexers.HandlerManualIndexer)
 	indexerMux.HandleFunc("/search", search.SearchTorrentHandler)
+	indexerMux.HandleFunc("/search/health", search.HealthHandler)
+	indexerMux.HandleFunc("/search/stats", search.StatsHandler)
 	indexerMux.Handle("/ui/", http.StripPrefix("/ui/", http.FileServer(http.FS(public.UIFiles))))
 
 	metricsMux.Handle("/metrics", promhttp.Handler())

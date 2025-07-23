@@ -19,6 +19,18 @@ type SearchIndexer struct {
 	IndexName string
 }
 
+// IndexStats represents statistics about the Meilisearch index
+type IndexStats struct {
+	NumberOfDocuments int64            `json:"numberOfDocuments"`
+	IsIndexing        bool             `json:"isIndexing"`
+	FieldDistribution map[string]int64 `json:"fieldDistribution"`
+}
+
+// HealthStatus represents the health status of Meilisearch
+type HealthStatus struct {
+	Status string `json:"status"`
+}
+
 // NewSearchIndexer creates a new instance of SearchIndexer.
 func NewSearchIndexer(baseURL, apiKey, indexName string) *SearchIndexer {
 	return &SearchIndexer{
@@ -144,4 +156,68 @@ func (t *SearchIndexer) SearchTorrent(query string, limit int) ([]schema.Indexed
 	}
 
 	return result.Hits, nil
+}
+
+// GetStats retrieves statistics about the Meilisearch index including document count.
+// This method can be used for health checks and monitoring.
+func (t *SearchIndexer) GetStats() (*IndexStats, error) {
+	url := fmt.Sprintf("%s/indexes/%s/stats", t.BaseURL, t.IndexName)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	if t.APIKey != "" {
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", t.APIKey))
+	}
+
+	resp, err := t.Client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("failed to get stats: status %d, body: %s", resp.StatusCode, body)
+	}
+
+	var stats IndexStats
+	if err := json.NewDecoder(resp.Body).Decode(&stats); err != nil {
+		return nil, fmt.Errorf("failed to parse stats response: %w", err)
+	}
+
+	return &stats, nil
+}
+
+// IsHealthy checks if Meilisearch is available and responsive.
+// Returns true if the service is healthy, false otherwise.
+func (t *SearchIndexer) IsHealthy() bool {
+	url := fmt.Sprintf("%s/health", t.BaseURL)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return false
+	}
+
+	// Use a shorter timeout for health checks
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+
+	return resp.StatusCode == http.StatusOK
+}
+
+// GetDocumentCount returns the number of indexed documents.
+// This is a convenience method that extracts just the document count from stats.
+func (t *SearchIndexer) GetDocumentCount() (int64, error) {
+	stats, err := t.GetStats()
+	if err != nil {
+		return 0, err
+	}
+	return stats.NumberOfDocuments, nil
 }

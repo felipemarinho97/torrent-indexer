@@ -9,8 +9,8 @@
   <script src="https://cdn.jsdelivr.net/npm/@heroicons/react/solid@2.0.0/dist/index.umd.js"></script>
 </head>
 
-<body class="bg-gray-900 text-white font-sans">
-  <div class="container mx-auto p-6">
+<body class="bg-gray-900 text-white font-sans min-h-screen flex flex-col">
+  <div class="container mx-auto p-6 flex-grow">
     <!-- Header -->
     <header class="text-center mb-10">
       <h1 class="text-4xl font-bold text-blue-400">Torrent Indexer 🇧🇷</h1>
@@ -24,14 +24,95 @@
       <button id="search-btn"
         class="ml-4 px-6 py-2 bg-blue-600 hover:bg-blue-700 rounded-md font-bold text-white">Search</button>
     </div>
-
+    
     <!-- Results Section -->
-    <div id="results" class="space-y-6">
+    <div id="results" class="space-y-6 mb-10">
       <!-- Dynamic content will be injected here -->
     </div>
+
+    <!-- Health Warning -->
+    <div id="health-warning" class="hidden mb-6 p-4 bg-yellow-800 border border-yellow-600 rounded-lg">
+      <div class="flex items-center gap-2">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-9 4h18a2 2 0 002-2V7a2 2 0 00-2-2H3a2 2 0 00-2 2v10a2 2 0 002 2z" />
+        </svg>
+        <span class="font-bold text-yellow-400">Service Warning</span>
+      </div>
+      <p class="text-yellow-200 mt-2">Search functionality may be disabled or experiencing issues. Please try again later.</p>
+    </div>
+
+  </div>
+  <!-- Stats Section -->
+  <div id="database-statistics" class="stats-info mt-auto mb-1 p-3 rounded text-center">
+    <span id="torrentStats" class="text-gray-400">Loading stats...</span>
   </div>
 
   <script>
+    // Global variables
+    let serviceHealthy = true;
+
+    // Function to check service health
+    async function checkHealth() {
+      try {
+        const response = await fetch('/search/health');
+        const health = await response.json();
+        
+        if (response.status === 503 || health.status === 'unhealthy') {
+          serviceHealthy = false;
+          showHealthWarning();
+          hideDatabaseStatistics();
+        } else if (health.status === 'degraded') {
+          serviceHealthy = true; // Still operational
+          showHealthWarning(); // But show warning
+        } else {
+          serviceHealthy = true;
+          hideHealthWarning();
+        }
+      } catch (error) {
+        serviceHealthy = false;
+        showHealthWarning();
+        console.error('Health check failed:', error);
+      }
+    }
+
+    // Function to show health warning
+    function showHealthWarning() {
+      document.getElementById('health-warning').classList.remove('hidden');
+    }
+
+    // Function to hide health warning
+    function hideHealthWarning() {
+      document.getElementById('health-warning').classList.add('hidden');
+    }
+
+    function hideDatabaseStatistics() {
+      document.getElementById('database-statistics').classList.add('hidden');
+    }
+
+    // Function to load stats
+    async function loadStats() {
+      try {
+        const response = await fetch('/search/stats');
+        if (response.ok) {
+          const stats = await response.json();
+          const statsElement = document.getElementById('torrentStats');
+          
+          const formattedStats = `
+              <span class="text-sm text-gray-500">
+                <span class="text-green-400 font-medium">${stats.numberOfDocuments?.toLocaleString()+'+' || 'N/A'}</span> indexed torrents!
+              </span>
+          `;
+          
+          statsElement.innerHTML = formattedStats;
+        } else {
+          throw new Error('Failed to load stats');
+        }
+      } catch (error) {
+        hideDatabaseStatistics();
+        console.error('Stats loading failed:', error);
+      }
+    }
+
     // Function to render a single torrent result
     function renderTorrent(torrent) {
       return `
@@ -100,26 +181,44 @@
 
         const results = await response.json();
         const resultsContainer = document.getElementById('results');
-        resultsContainer.innerHTML = results.map(renderTorrent).join('');
+        
+        if (results.length === 0) {
+          resultsContainer.innerHTML = `
+            <div class="p-6 bg-gray-800 rounded-lg shadow-md text-center">
+              <p class="text-xl font-bold text-gray-400">No results found</p>
+              <p class="text-gray-500 mt-2">Try different search terms or check spelling</p>
+            </div>
+          `;
+        } else {
+          resultsContainer.innerHTML = results.map(renderTorrent).join('');
+        }
       } catch (error) {
-        // add error element
         document.getElementById('results').innerHTML = `
           <div class="p-6 bg-red-800 rounded-lg shadow-md text-center">
             <p class="text-xl font-bold text-red-400">Error fetching search results</p>
             <p class="text-gray-400 mt-2">Please try again later.</p>
           </div>
         `;
-        //alert('Error fetching search results. Please try again.');
         console.error(error);
       }
     }
     
+    // Event listeners
     document.getElementById('search-btn').addEventListener('click', onSearch);
-    // on enter press
     document.getElementById('search-query').addEventListener('keypress', (e) => {
       if (e.key === 'Enter') {
         onSearch();
       }
+    });
+
+    // Initialize page
+    document.addEventListener('DOMContentLoaded', async () => {
+      await checkHealth();
+      await loadStats();
+      
+      // Refresh health and stats periodically
+      setInterval(checkHealth, 30000); // Check health every 30 seconds
+      setInterval(loadStats, 60000);   // Update stats every minute
     });
   </script>
 </body>
