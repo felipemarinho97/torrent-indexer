@@ -69,7 +69,7 @@ func main() {
 
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "7007"
+		port = "7006"
 	}
 
 	fmt.Printf("Server listening on :%s\n", port)
