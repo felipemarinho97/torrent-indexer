@@ -122,7 +122,6 @@ You can integrate this indexer with Prowlarr by adding a custom definition. See 
 
 ```yaml
 ---
----
 id: torrent-indexer
 name: Torrent Indexer
 description: "Indexing Brazilian Torrent websites into structured data. github.com/felipemarinho97/torrent-indexer"
@@ -151,6 +150,9 @@ settings:
       bludv: BLUDV
       comando_torrents: Comando Torrents
       torrent-dos-filmes: Torrent dos Filmes
+      comandohds: Comando HDs
+      starck-filmes: Starck Filmes
+      rede_torrent: Rede Torrent
 
 search:
   paths:
