@@ -1,11 +1,13 @@
 package utils
 
 import (
+	"fmt"
 	"strings"
 
 	"golang.org/x/net/html"
 )
 
+// Filter filters a slice based on a predicate function.
 func Filter[A any](arr []A, f func(A) bool) []A {
 	var res []A
 	res = make([]A, 0)
@@ -17,6 +19,8 @@ func Filter[A any](arr []A, f func(A) bool) []A {
 	return res
 }
 
+// ParallelMap applies a function to each item in the iterable concurrently
+// and returns a slice of results. It can handle errors by passing an error handler function.
 func ParallelMap[T any, R any](iterable []T, mapper func(item T) ([]R, error), errHandler ...func(error)) []R {
 	var itChan = make(chan []R)
 	var errChan = make(chan error)
@@ -31,7 +35,7 @@ func ParallelMap[T any, R any](iterable []T, mapper func(item T) ([]R, error), e
 		}(link)
 	}
 
-	for i := 0; i < len(iterable); i++ {
+	for range iterable {
 		select {
 		case items := <-itChan:
 			mappedItems = append(mappedItems, items...)
@@ -39,11 +43,15 @@ func ParallelMap[T any, R any](iterable []T, mapper func(item T) ([]R, error), e
 			for _, handler := range errHandler {
 				handler(err)
 			}
+			if len(errHandler) == 0 {
+				fmt.Println(err)
+			}
 		}
 	}
 	return mappedItems
 }
 
+// StableUniq removes duplicates from a slice while maintaining the order of elements.
 func StableUniq(s []string) []string {
 	var uniq []map[string]interface{}
 	m := make(map[string]map[string]interface{})
