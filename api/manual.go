@@ -11,6 +11,7 @@ import (
 	"github.com/felipemarinho97/torrent-indexer/magnet"
 	"github.com/felipemarinho97/torrent-indexer/schema"
 	goscrape "github.com/felipemarinho97/torrent-indexer/scrape"
+	"github.com/felipemarinho97/torrent-indexer/utils"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -72,7 +73,7 @@ func (i *Indexer) HandlerManualIndexer(w http.ResponseWriter, r *http.Request) {
 			fmt.Println(err)
 		}
 		var audio []schema.Audio
-		releaseTitle := magnet.DisplayName
+		releaseTitle := utils.RemoveKnownWebsites(magnet.DisplayName)
 		infoHash := magnet.InfoHash.String()
 		trackers := magnet.Trackers
 		magnetAudio := getAudioFromTitle(releaseTitle, audio)

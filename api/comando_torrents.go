@@ -227,7 +227,7 @@ func getTorrents(ctx context.Context, i *Indexer, link string) ([]schema.Indexed
 			if err != nil {
 				fmt.Println(err)
 			}
-			releaseTitle := magnet.DisplayName
+			releaseTitle := utils.RemoveKnownWebsites(magnet.DisplayName)
 			infoHash := magnet.InfoHash.String()
 			trackers := magnet.Trackers
 			magnetAudio := getAudioFromTitle(releaseTitle, audio)

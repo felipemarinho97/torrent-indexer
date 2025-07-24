@@ -25,6 +25,7 @@ const (
 	AudioMandarin3   = "Chines"
 	AudioRussian     = "Russo"
 	AudioSwedish     = "Sueco"
+	AudioSwedish2    = "Suéco"
 	AudioUkrainian   = "Ucraniano"
 	AudioPolish      = "Polaco"
 	AudioPolish2     = "Polonês"
@@ -34,9 +35,32 @@ const (
 	AudioTurkish     = "Turco"
 	AudioHindi       = "Hindi"
 	AudioFarsi       = "Persa"
+	AudioFarsi2      = "Farsi"
+	AudioFarsi3      = "Iraniano"
 	AudioMalay       = "Malaio"
 	AudioDutch       = "Holandês"
 	AudioDutch2      = "Holandes"
+	AudioFinnish     = "Finlandês"
+	AudioFinnish2    = "Finlandes"
+	AudioDanish      = "Dinamarquês"
+	AudioDanish2     = "Dinamarques"
+	AudioNorwegian   = "Norueguês"
+	AudioNorwegian2  = "Noruegues"
+	AudioIcelandic   = "Islandês"
+	AudioIcelandic2  = "Islandes"
+	AudioGreek       = "Grego"
+	AudioArabic      = "Árabe"
+	AudioArabic2     = "Arabe"
+	AudioHebrew      = "Hebraico"
+	AudioVietnamese  = "Vietnamita"
+	AudioIndonesian  = "Indonésio"
+	AudioIndonesian2 = "Indonesio"
+	AudioFilipino    = "Filipino"
+	AudioBengali     = "Bengali"
+	AudioTamil       = "Tamil"
+	AudioTelugu      = "Telugu"
+	AudioGujarati    = "Gujarati"
+	AudioMarathi     = "Marathi"
 )
 
 var AudioList = []Audio{
@@ -60,6 +84,7 @@ var AudioList = []Audio{
 	AudioMandarin3,
 	AudioRussian,
 	AudioSwedish,
+	AudioSwedish2,
 	AudioUkrainian,
 	AudioPolish,
 	AudioPolish2,
@@ -69,9 +94,32 @@ var AudioList = []Audio{
 	AudioTurkish,
 	AudioHindi,
 	AudioFarsi,
+	AudioFarsi2,
+	AudioFarsi3,
 	AudioMalay,
 	AudioDutch,
 	AudioDutch2,
+	AudioFinnish,
+	AudioFinnish2,
+	AudioDanish,
+	AudioDanish2,
+	AudioNorwegian,
+	AudioNorwegian2,
+	AudioIcelandic,
+	AudioIcelandic2,
+	AudioGreek,
+	AudioArabic,
+	AudioArabic2,
+	AudioHebrew,
+	AudioVietnamese,
+	AudioIndonesian,
+	AudioIndonesian2,
+	AudioFilipino,
+	AudioBengali,
+	AudioTamil,
+	AudioTelugu,
+	AudioGujarati,
+	AudioMarathi,
 }
 
 func (a Audio) String() string {
@@ -129,6 +177,8 @@ func (a Audio) toTag() string {
 		return "rus"
 	case AudioSwedish:
 		return "swe"
+	case AudioSwedish2:
+		return "swe"
 	case AudioUkrainian:
 		return "ukr"
 	case AudioPolish:
@@ -147,12 +197,58 @@ func (a Audio) toTag() string {
 		return "hin"
 	case AudioFarsi:
 		return "fas"
+	case AudioFarsi2:
+		return "fas"
+	case AudioFarsi3:
+		return "fas"
 	case AudioMalay:
 		return "msa"
 	case AudioDutch:
 		return "nld"
 	case AudioDutch2:
 		return "nld"
+	case AudioFinnish:
+		return "fin"
+	case AudioFinnish2:
+		return "fin"
+	case AudioDanish:
+		return "dan"
+	case AudioDanish2:
+		return "dan"
+	case AudioNorwegian:
+		return "nor"
+	case AudioNorwegian2:
+		return "nor"
+	case AudioIcelandic:
+		return "isl"
+	case AudioIcelandic2:
+		return "isl"
+	case AudioGreek:
+		return "ell"
+	case AudioArabic:
+		return "ara"
+	case AudioArabic2:
+		return "ara"
+	case AudioHebrew:
+		return "heb"
+	case AudioVietnamese:
+		return "vie"
+	case AudioIndonesian:
+		return "ind"
+	case AudioIndonesian2:
+		return "ind"
+	case AudioFilipino:
+		return "fil"
+	case AudioBengali:
+		return "ben"
+	case AudioTamil:
+		return "tam"
+	case AudioTelugu:
+		return "tel"
+	case AudioGujarati:
+		return "guj"
+	case AudioMarathi:
+		return "mar"
 	default:
 		return ""
 	}

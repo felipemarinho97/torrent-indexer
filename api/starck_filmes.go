@@ -196,12 +196,12 @@ func getTorrentStarckFilmes(ctx context.Context, i *Indexer, link string) ([]sch
 			if err != nil {
 				fmt.Println(err)
 			}
-			releaseTitle := strings.TrimSpace(magnet.DisplayName)
+			releaseTitle := strings.TrimSpace(utils.RemoveKnownWebsites(magnet.DisplayName))
 			// url decode the title
 			releaseTitle, err = url.QueryUnescape(releaseTitle)
 			if err != nil {
 				fmt.Println(err)
-				releaseTitle = strings.TrimSpace(magnet.DisplayName)
+				releaseTitle = strings.TrimSpace(utils.RemoveKnownWebsites(magnet.DisplayName))
 			}
 			infoHash := magnet.InfoHash.String()
 			trackers := magnet.Trackers
