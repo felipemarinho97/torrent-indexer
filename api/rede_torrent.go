@@ -15,7 +15,6 @@ import (
 	"github.com/felipemarinho97/torrent-indexer/magnet"
 	"github.com/felipemarinho97/torrent-indexer/schema"
 	goscrape "github.com/felipemarinho97/torrent-indexer/scrape"
-	"github.com/felipemarinho97/torrent-indexer/utils"
 )
 
 var rede_torrent = IndexerMeta{
@@ -217,7 +216,7 @@ func getTorrentsRedeTorrent(ctx context.Context, i *Indexer, link string) ([]sch
 			if err != nil {
 				fmt.Println(err)
 			}
-			releaseTitle := utils.RemoveKnownWebsites(magnet.DisplayName)
+			releaseTitle := magnet.DisplayName
 			infoHash := magnet.InfoHash.String()
 			trackers := magnet.Trackers
 			magnetAudio := getAudioFromTitle(releaseTitle, audio)
@@ -236,7 +235,7 @@ func getTorrentsRedeTorrent(ctx context.Context, i *Indexer, link string) ([]sch
 			}
 
 			ixt := schema.IndexedTorrent{
-				Title:         appendAudioISO639_2Code(releaseTitle, magnetAudio),
+				Title:         releaseTitle,
 				OriginalTitle: title,
 				Details:       link,
 				Year:          year,

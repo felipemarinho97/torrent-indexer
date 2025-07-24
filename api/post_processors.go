@@ -19,6 +19,14 @@ func CleanupTitleWebsites(_ *Indexer, _ *http.Request, torrents []schema.Indexed
 	return torrents
 }
 
+func AppendAudioTags(_ *Indexer, _ *http.Request, torrents []schema.IndexedTorrent) []schema.IndexedTorrent {
+	for i, it := range torrents {
+		torrents[i].Title = appendAudioISO639_2Code(torrents[i].Title, it.Audio)
+	}
+
+	return torrents
+}
+
 // SendToSearchIndexer sends the indexed torrents to the search indexer
 func SendToSearchIndexer(i *Indexer, _ *http.Request, torrents []schema.IndexedTorrent) []schema.IndexedTorrent {
 	go func() {

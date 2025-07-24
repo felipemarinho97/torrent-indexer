@@ -52,7 +52,7 @@ var commonWebsiteSLDs = []string{
 
 var websitePatterns = []string{
 	`\[\s*ACESSE\s+%s\s*\]`,
-	`\[?\s*%s\s*\]?`,
+	`\[?\s*%s(\s*\])?`,
 }
 
 var regexesOnce sync.Once
@@ -69,10 +69,14 @@ func getRegexes() []*regexp.Regexp {
 				}
 			}
 		}
+		// remove the last pipe character
 		websites.WriteString(")")
 
+		websitesStr := websites.String()
+		websitesStr = strings.Replace(websitesStr, "|)", ")", 1)
+
 		for _, pattern := range websitePatterns {
-			regexes = append(regexes, regexp.MustCompile(fmt.Sprintf(pattern, websites.String())))
+			regexes = append(regexes, regexp.MustCompile(fmt.Sprintf(pattern, websitesStr)))
 		}
 	})
 	return regexes

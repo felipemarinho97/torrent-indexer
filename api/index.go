@@ -17,7 +17,7 @@ type Indexer struct {
 	metrics        *monitoring.Metrics
 	requester      *requester.Requster
 	search         *meilisearch.SearchIndexer
-	postProcessors []PostProcessor
+	postProcessors []PostProcessorFunc
 }
 
 type IndexerMeta struct {
@@ -32,22 +32,22 @@ type Response struct {
 	Count   int                     `json:"count"`
 }
 
-type PostProcessor func(*Indexer, *http.Request, []schema.IndexedTorrent) []schema.IndexedTorrent
+type PostProcessorFunc func(*Indexer, *http.Request, []schema.IndexedTorrent) []schema.IndexedTorrent
+
+var GlobalPostProcessors = []PostProcessorFunc{
+	AddSimilarityCheck,   // Jaccard similarity
+	CleanupTitleWebsites, // Remove website names from titles
+	AppendAudioTags,      // Add (brazilian, eng, etc.) audio tags to titles
+	SendToSearchIndexer,  // Send indexed torrents to Meilisearch
+}
 
 func NewIndexers(redis *cache.Redis, metrics *monitoring.Metrics, req *requester.Requster, si *meilisearch.SearchIndexer) *Indexer {
-	// Initialize post-processors
-	postProcessors := []PostProcessor{
-		AddSimilarityCheck,
-		CleanupTitleWebsites,
-		SendToSearchIndexer,
-	}
-
 	return &Indexer{
 		redis:          redis,
 		metrics:        metrics,
 		requester:      req,
 		search:         si,
-		postProcessors: postProcessors,
+		postProcessors: GlobalPostProcessors,
 	}
 }
 

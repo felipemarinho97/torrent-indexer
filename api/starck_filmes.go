@@ -14,7 +14,6 @@ import (
 	"github.com/felipemarinho97/torrent-indexer/magnet"
 	"github.com/felipemarinho97/torrent-indexer/schema"
 	goscrape "github.com/felipemarinho97/torrent-indexer/scrape"
-	"github.com/felipemarinho97/torrent-indexer/utils"
 )
 
 var starck_filmes = IndexerMeta{
@@ -180,12 +179,12 @@ func getTorrentStarckFilmes(ctx context.Context, i *Indexer, link string) ([]sch
 			if err != nil {
 				fmt.Println(err)
 			}
-			releaseTitle := strings.TrimSpace(utils.RemoveKnownWebsites(magnet.DisplayName))
+			releaseTitle := strings.TrimSpace(magnet.DisplayName)
 			// url decode the title
 			releaseTitle, err = url.QueryUnescape(releaseTitle)
 			if err != nil {
 				fmt.Println(err)
-				releaseTitle = strings.TrimSpace(utils.RemoveKnownWebsites(magnet.DisplayName))
+				releaseTitle = strings.TrimSpace(magnet.DisplayName)
 			}
 			infoHash := magnet.InfoHash.String()
 			trackers := magnet.Trackers
@@ -212,7 +211,7 @@ func getTorrentStarckFilmes(ctx context.Context, i *Indexer, link string) ([]sch
 			}
 
 			ixt := schema.IndexedTorrent{
-				Title:         appendAudioISO639_2Code(releaseTitle, magnetAudio),
+				Title:         releaseTitle,
 				OriginalTitle: title,
 				Details:       link,
 				Year:          year,

@@ -212,7 +212,7 @@ func getTorrentsBluDV(ctx context.Context, i *Indexer, link string) ([]schema.In
 			if err != nil {
 				fmt.Println(err)
 			}
-			releaseTitle := utils.RemoveKnownWebsites(magnet.DisplayName)
+			releaseTitle := magnet.DisplayName
 			infoHash := magnet.InfoHash.String()
 			trackers := magnet.Trackers
 			magnetAudio := getAudioFromTitle(releaseTitle, audio)
@@ -231,7 +231,7 @@ func getTorrentsBluDV(ctx context.Context, i *Indexer, link string) ([]schema.In
 			}
 
 			ixt := schema.IndexedTorrent{
-				Title:         appendAudioISO639_2Code(releaseTitle, magnetAudio),
+				Title:         releaseTitle,
 				OriginalTitle: title,
 				Details:       link,
 				Year:          year,
