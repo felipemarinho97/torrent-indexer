@@ -16,6 +16,7 @@ import (
 	"github.com/felipemarinho97/torrent-indexer/magnet"
 	"github.com/felipemarinho97/torrent-indexer/schema"
 	goscrape "github.com/felipemarinho97/torrent-indexer/scrape"
+	"github.com/felipemarinho97/torrent-indexer/utils"
 )
 
 var comando = IndexerMeta{
@@ -94,28 +95,10 @@ func (i *Indexer) HandlerComandoIndexer(w http.ResponseWriter, r *http.Request) 
 		links = append(links, link)
 	})
 
-	var itChan = make(chan []schema.IndexedTorrent)
-	var errChan = make(chan error)
-	indexedTorrents := []schema.IndexedTorrent{}
-	for _, link := range links {
-		go func(link string) {
-			torrents, err := getTorrents(ctx, i, link)
-			if err != nil {
-				fmt.Println(err)
-				errChan <- err
-			}
-			itChan <- torrents
-		}(link)
-	}
-
-	for i := 0; i < len(links); i++ {
-		select {
-		case torrents := <-itChan:
-			indexedTorrents = append(indexedTorrents, torrents...)
-		case err := <-errChan:
-			fmt.Println(err)
-		}
-	}
+	// extract each torrent link
+	indexedTorrents := utils.ParallelMap(links, func(link string) ([]schema.IndexedTorrent, error) {
+		return getTorrents(ctx, i, link)
+	})
 
 	// Apply post-processors
 	postProcessedTorrents := indexedTorrents

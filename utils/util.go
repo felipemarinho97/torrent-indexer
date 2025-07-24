@@ -2,6 +2,7 @@ package utils
 
 import (
 	"strings"
+
 	"golang.org/x/net/html"
 )
 
@@ -14,6 +15,33 @@ func Filter[A any](arr []A, f func(A) bool) []A {
 		}
 	}
 	return res
+}
+
+func ParallelMap[T any, R any](iterable []T, mapper func(item T) ([]R, error), errHandler ...func(error)) []R {
+	var itChan = make(chan []R)
+	var errChan = make(chan error)
+	mappedItems := []R{}
+	for _, link := range iterable {
+		go func(link T) {
+			items, err := mapper(link)
+			if err != nil {
+				errChan <- err
+			}
+			itChan <- items
+		}(link)
+	}
+
+	for i := 0; i < len(iterable); i++ {
+		select {
+		case items := <-itChan:
+			mappedItems = append(mappedItems, items...)
+		case err := <-errChan:
+			for _, handler := range errHandler {
+				handler(err)
+			}
+		}
+	}
+	return mappedItems
 }
 
 func IsValidHTML(input string) bool {
