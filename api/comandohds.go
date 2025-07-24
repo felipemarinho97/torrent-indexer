@@ -159,7 +159,7 @@ func getTorrentsComandoHDs(ctx context.Context, i *Indexer, link string) ([]sche
 		}
 	})
 
-	size = stableUniq(size)
+	size = utils.StableUniq(size)
 
 	var chanIndexedTorrent = make(chan schema.IndexedTorrent)
 

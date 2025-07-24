@@ -1,11 +1,9 @@
 package handler
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -181,7 +179,7 @@ func getTorrents(ctx context.Context, i *Indexer, link string) ([]schema.Indexed
 		}
 	})
 
-	size = stableUniq(size)
+	size = utils.StableUniq(size)
 
 	var chanIndexedTorrent = make(chan schema.IndexedTorrent)
 
@@ -259,38 +257,6 @@ func parseLocalizedDate(datePublished string) (time.Time, error) {
 	return time.Time{}, nil
 }
 
-func stableUniq(s []string) []string {
-	var uniq []map[string]interface{}
-	m := make(map[string]map[string]interface{})
-	for i, v := range s {
-		m[v] = map[string]interface{}{
-			"v": v,
-			"i": i,
-		}
-	}
-	// to order by index
-	for _, v := range m {
-		uniq = append(uniq, v)
-	}
-
-	// sort by index
-	for i := 0; i < len(uniq); i++ {
-		for j := i + 1; j < len(uniq); j++ {
-			if uniq[i]["i"].(int) > uniq[j]["i"].(int) {
-				uniq[i], uniq[j] = uniq[j], uniq[i]
-			}
-		}
-	}
-
-	// get only values
-	var uniqValues []string
-	for _, v := range uniq {
-		uniqValues = append(uniqValues, v["v"].(string))
-	}
-
-	return uniqValues
-}
-
 func processTitle(title string, a []schema.Audio) string {
 	// remove ' - Donwload' from title
 	title = strings.Replace(title, " – Download", "", -1)
@@ -302,39 +268,4 @@ func processTitle(title string, a []schema.Audio) string {
 	title = appendAudioISO639_2Code(title, a)
 
 	return title
-}
-
-func getDocument(ctx context.Context, i *Indexer, link string) (*goquery.Document, error) {
-	// try to get from redis first
-	docCache, err := i.redis.Get(ctx, link)
-	if err == nil {
-		i.metrics.CacheHits.WithLabelValues("document_body").Inc()
-		fmt.Printf("returning from long-lived cache: %s\n", link)
-		return goquery.NewDocumentFromReader(io.NopCloser(bytes.NewReader(docCache)))
-	}
-	defer i.metrics.CacheMisses.WithLabelValues("document_body").Inc()
-
-	resp, err := i.requester.GetDocument(ctx, link)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Close()
-
-	body, err := io.ReadAll(resp)
-	if err != nil {
-		return nil, err
-	}
-
-	// set cache
-	err = i.redis.Set(ctx, link, body)
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	doc, err := goquery.NewDocumentFromReader(io.NopCloser(bytes.NewReader(body)))
-	if err != nil {
-		return nil, err
-	}
-
-	return doc, nil
 }

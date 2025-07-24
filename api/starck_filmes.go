@@ -150,7 +150,7 @@ func getTorrentStarckFilmes(ctx context.Context, i *Indexer, link string) ([]sch
 	// TODO: find any link from imdb
 	imdbLink := ""
 
-	size = stableUniq(size)
+	size = utils.StableUniq(size)
 
 	var chanIndexedTorrent = make(chan schema.IndexedTorrent)
 

@@ -187,7 +187,7 @@ func getTorrentsRedeTorrent(ctx context.Context, i *Indexer, link string) ([]sch
 		}
 	})
 
-	size = stableUniq(size)
+	size = utils.StableUniq(size)
 
 	var chanIndexedTorrent = make(chan schema.IndexedTorrent)
 

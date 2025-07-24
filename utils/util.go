@@ -44,6 +44,38 @@ func ParallelMap[T any, R any](iterable []T, mapper func(item T) ([]R, error), e
 	return mappedItems
 }
 
+func StableUniq(s []string) []string {
+	var uniq []map[string]interface{}
+	m := make(map[string]map[string]interface{})
+	for i, v := range s {
+		m[v] = map[string]interface{}{
+			"v": v,
+			"i": i,
+		}
+	}
+	// to order by index
+	for _, v := range m {
+		uniq = append(uniq, v)
+	}
+
+	// sort by index
+	for i := 0; i < len(uniq); i++ {
+		for j := i + 1; j < len(uniq); j++ {
+			if uniq[i]["i"].(int) > uniq[j]["i"].(int) {
+				uniq[i], uniq[j] = uniq[j], uniq[i]
+			}
+		}
+	}
+
+	// get only values
+	var uniqValues []string
+	for _, v := range uniq {
+		uniqValues = append(uniqValues, v["v"].(string))
+	}
+
+	return uniqValues
+}
+
 func IsValidHTML(input string) bool {
 	r := strings.NewReader(input)
 	_, err := html.Parse(r)

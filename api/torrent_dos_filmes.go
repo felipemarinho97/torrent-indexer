@@ -157,7 +157,7 @@ func getTorrentsTorrentDosFilmes(ctx context.Context, i *Indexer, link string) (
 		}
 	})
 
-	size = stableUniq(size)
+	size = utils.StableUniq(size)
 
 	var chanIndexedTorrent = make(chan schema.IndexedTorrent)
 
