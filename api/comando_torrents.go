@@ -1,15 +1,12 @@
 package handler
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"regexp"
-	"slices"
 	"strings"
 	"time"
 
@@ -18,12 +15,13 @@ import (
 	"github.com/felipemarinho97/torrent-indexer/schema"
 	goscrape "github.com/felipemarinho97/torrent-indexer/scrape"
 	"github.com/felipemarinho97/torrent-indexer/utils"
-	"github.com/hbollon/go-edlib"
 )
 
 var comando = IndexerMeta{
-	URL:       "https://comando.la/",
-	SearchURL: "?s=",
+	Label:       "comando",
+	URL:         "https://comando.la/",
+	SearchURL:   "?s=",
+	PagePattern: "page/%s",
 }
 
 var replacer = strings.NewReplacer(
@@ -43,9 +41,11 @@ var replacer = strings.NewReplacer(
 
 func (i *Indexer) HandlerComandoIndexer(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
+	metadata := comando
+
 	defer func() {
-		i.metrics.IndexerDuration.WithLabelValues("comando").Observe(time.Since(start).Seconds())
-		i.metrics.IndexerRequests.WithLabelValues("comando").Inc()
+		i.metrics.IndexerDuration.WithLabelValues(metadata.Label).Observe(time.Since(start).Seconds())
+		i.metrics.IndexerRequests.WithLabelValues(metadata.Label).Inc()
 	}()
 
 	ctx := r.Context()
@@ -55,11 +55,11 @@ func (i *Indexer) HandlerComandoIndexer(w http.ResponseWriter, r *http.Request) 
 
 	// URL encode query param
 	q = url.QueryEscape(q)
-	url := comando.URL
+	url := metadata.URL
 	if q != "" {
-		url = fmt.Sprintf("%s%s%s", url, comando.SearchURL, q)
+		url = fmt.Sprintf("%s%s%s", url, metadata.SearchURL, q)
 	} else if page != "" {
-		url = fmt.Sprintf("%spage/%s", url, page)
+		url = fmt.Sprintf(fmt.Sprintf("%s%s", url, metadata.PagePattern), page)
 	}
 
 	fmt.Println("URL:>", url)
@@ -70,7 +70,7 @@ func (i *Indexer) HandlerComandoIndexer(w http.ResponseWriter, r *http.Request) 
 		if err != nil {
 			fmt.Println(err)
 		}
-		i.metrics.IndexerErrors.WithLabelValues("comando").Inc()
+		i.metrics.IndexerErrors.WithLabelValues(metadata.Label).Inc()
 		return
 	}
 	defer resp.Close()
@@ -82,7 +82,7 @@ func (i *Indexer) HandlerComandoIndexer(w http.ResponseWriter, r *http.Request) 
 		if err != nil {
 			fmt.Println(err)
 		}
-		i.metrics.IndexerErrors.WithLabelValues("comando").Inc()
+		i.metrics.IndexerErrors.WithLabelValues(metadata.Label).Inc()
 		return
 	}
 
@@ -93,57 +93,21 @@ func (i *Indexer) HandlerComandoIndexer(w http.ResponseWriter, r *http.Request) 
 		links = append(links, link)
 	})
 
-	var itChan = make(chan []schema.IndexedTorrent)
-	var errChan = make(chan error)
-	indexedTorrents := []schema.IndexedTorrent{}
-	for _, link := range links {
-		go func(link string) {
-			torrents, err := getTorrents(ctx, i, link)
-			if err != nil {
-				fmt.Println(err)
-				errChan <- err
-			}
-			itChan <- torrents
-		}(link)
-	}
-
-	for i := 0; i < len(links); i++ {
-		select {
-		case torrents := <-itChan:
-			indexedTorrents = append(indexedTorrents, torrents...)
-		case err := <-errChan:
-			fmt.Println(err)
-		}
-	}
-
-	for i, it := range indexedTorrents {
-		jLower := strings.ReplaceAll(strings.ToLower(fmt.Sprintf("%s %s", it.Title, it.OriginalTitle)), ".", " ")
-		qLower := strings.ToLower(q)
-		splitLength := 2
-		indexedTorrents[i].Similarity = edlib.JaccardSimilarity(jLower, qLower, splitLength)
-	}
-
-	// remove the ones with zero similarity
-	if len(indexedTorrents) > 20 && r.URL.Query().Get("filter_results") != "" && r.URL.Query().Get("q") != "" {
-		indexedTorrents = utils.Filter(indexedTorrents, func(it schema.IndexedTorrent) bool {
-			return it.Similarity > 0
-		})
-	}
-
-	// sort by similarity
-	slices.SortFunc(indexedTorrents, func(i, j schema.IndexedTorrent) int {
-		return int((j.Similarity - i.Similarity) * 1000)
+	// extract each torrent link
+	indexedTorrents := utils.ParallelMap(links, func(link string) ([]schema.IndexedTorrent, error) {
+		return getTorrents(ctx, i, link)
 	})
 
-	// send to search index
-	go func() {
-		_ = i.search.IndexTorrents(indexedTorrents)
-	}()
+	// Apply post-processors
+	postProcessedTorrents := indexedTorrents
+	for _, processor := range i.postProcessors {
+		postProcessedTorrents = processor(i, r, postProcessedTorrents)
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(Response{
-		Results: indexedTorrents,
-		Count:   len(indexedTorrents),
+		Results: postProcessedTorrents,
+		Count:   len(postProcessedTorrents),
 	})
 	if err != nil {
 		fmt.Println(err)
@@ -215,7 +179,7 @@ func getTorrents(ctx context.Context, i *Indexer, link string) ([]schema.Indexed
 		}
 	})
 
-	size = stableUniq(size)
+	size = utils.StableUniq(size)
 
 	var chanIndexedTorrent = make(chan schema.IndexedTorrent)
 
@@ -246,7 +210,7 @@ func getTorrents(ctx context.Context, i *Indexer, link string) ([]schema.Indexed
 			}
 
 			ixt := schema.IndexedTorrent{
-				Title:         appendAudioISO639_2Code(releaseTitle, magnetAudio),
+				Title:         releaseTitle,
 				OriginalTitle: title,
 				Details:       link,
 				Year:          year,
@@ -293,38 +257,6 @@ func parseLocalizedDate(datePublished string) (time.Time, error) {
 	return time.Time{}, nil
 }
 
-func stableUniq(s []string) []string {
-	var uniq []map[string]interface{}
-	m := make(map[string]map[string]interface{})
-	for i, v := range s {
-		m[v] = map[string]interface{}{
-			"v": v,
-			"i": i,
-		}
-	}
-	// to order by index
-	for _, v := range m {
-		uniq = append(uniq, v)
-	}
-
-	// sort by index
-	for i := 0; i < len(uniq); i++ {
-		for j := i + 1; j < len(uniq); j++ {
-			if uniq[i]["i"].(int) > uniq[j]["i"].(int) {
-				uniq[i], uniq[j] = uniq[j], uniq[i]
-			}
-		}
-	}
-
-	// get only values
-	var uniqValues []string
-	for _, v := range uniq {
-		uniqValues = append(uniqValues, v["v"].(string))
-	}
-
-	return uniqValues
-}
-
 func processTitle(title string, a []schema.Audio) string {
 	// remove ' - Donwload' from title
 	title = strings.Replace(title, " – Download", "", -1)
@@ -336,39 +268,4 @@ func processTitle(title string, a []schema.Audio) string {
 	title = appendAudioISO639_2Code(title, a)
 
 	return title
-}
-
-func getDocument(ctx context.Context, i *Indexer, link string) (*goquery.Document, error) {
-	// try to get from redis first
-	docCache, err := i.redis.Get(ctx, link)
-	if err == nil {
-		i.metrics.CacheHits.WithLabelValues("document_body").Inc()
-		fmt.Printf("returning from long-lived cache: %s\n", link)
-		return goquery.NewDocumentFromReader(io.NopCloser(bytes.NewReader(docCache)))
-	}
-	defer i.metrics.CacheMisses.WithLabelValues("document_body").Inc()
-
-	resp, err := i.requester.GetDocument(ctx, link)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Close()
-
-	body, err := io.ReadAll(resp)
-	if err != nil {
-		return nil, err
-	}
-
-	// set cache
-	err = i.redis.Set(ctx, link, body)
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	doc, err := goquery.NewDocumentFromReader(io.NopCloser(bytes.NewReader(body)))
-	if err != nil {
-		return nil, err
-	}
-
-	return doc, nil
 }

@@ -6,12 +6,10 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"slices"
 	"strings"
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
-	"github.com/hbollon/go-edlib"
 
 	"github.com/felipemarinho97/torrent-indexer/magnet"
 	"github.com/felipemarinho97/torrent-indexer/schema"
@@ -20,15 +18,19 @@ import (
 )
 
 var torrent_dos_filmes = IndexerMeta{
-	URL:       "https://torrentdosfilmes.se/",
-	SearchURL: "?s=",
+	Label:       "torrent_dos_filmes",
+	URL:         "https://torrentdosfilmes.se/",
+	SearchURL:   "?s=",
+	PagePattern: "page/%s",
 }
 
 func (i *Indexer) HandlerTorrentDosFilmesIndexer(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
+	metadata := torrent_dos_filmes
+
 	defer func() {
-		i.metrics.IndexerDuration.WithLabelValues("torrent_dos_filmes").Observe(time.Since(start).Seconds())
-		i.metrics.IndexerRequests.WithLabelValues("torrent_dos_filmes").Inc()
+		i.metrics.IndexerDuration.WithLabelValues(metadata.Label).Observe(time.Since(start).Seconds())
+		i.metrics.IndexerRequests.WithLabelValues(metadata.Label).Inc()
 	}()
 
 	ctx := r.Context()
@@ -38,11 +40,11 @@ func (i *Indexer) HandlerTorrentDosFilmesIndexer(w http.ResponseWriter, r *http.
 
 	// URL encode query param
 	q = url.QueryEscape(q)
-	url := torrent_dos_filmes.URL
+	url := metadata.URL
 	if q != "" {
-		url = fmt.Sprintf("%s%s%s", url, torrent_dos_filmes.SearchURL, q)
+		url = fmt.Sprintf("%s%s%s", url, metadata.SearchURL, q)
 	} else if page != "" {
-		url = fmt.Sprintf("%spage/%s", url, page)
+		url = fmt.Sprintf(fmt.Sprintf("%s%s", url, metadata.PagePattern), page)
 	}
 
 	fmt.Println("URL:>", url)
@@ -53,7 +55,7 @@ func (i *Indexer) HandlerTorrentDosFilmesIndexer(w http.ResponseWriter, r *http.
 		if err != nil {
 			fmt.Println(err)
 		}
-		i.metrics.IndexerErrors.WithLabelValues("torrent_dos_filmes").Inc()
+		i.metrics.IndexerErrors.WithLabelValues(metadata.Label).Inc()
 		return
 	}
 	defer resp.Close()
@@ -66,7 +68,7 @@ func (i *Indexer) HandlerTorrentDosFilmesIndexer(w http.ResponseWriter, r *http.
 			fmt.Println(err)
 		}
 
-		i.metrics.IndexerErrors.WithLabelValues("torrent_dos_filmes").Inc()
+		i.metrics.IndexerErrors.WithLabelValues(metadata.Label).Inc()
 		return
 	}
 
@@ -76,57 +78,21 @@ func (i *Indexer) HandlerTorrentDosFilmesIndexer(w http.ResponseWriter, r *http.
 		links = append(links, link)
 	})
 
-	var itChan = make(chan []schema.IndexedTorrent)
-	var errChan = make(chan error)
-	indexedTorrents := []schema.IndexedTorrent{}
-	for _, link := range links {
-		go func(link string) {
-			torrents, err := getTorrentsTorrentDosFilmes(ctx, i, link)
-			if err != nil {
-				fmt.Println(err)
-				errChan <- err
-			}
-			itChan <- torrents
-		}(link)
-	}
-
-	for i := 0; i < len(links); i++ {
-		select {
-		case torrents := <-itChan:
-			indexedTorrents = append(indexedTorrents, torrents...)
-		case err := <-errChan:
-			fmt.Println(err)
-		}
-	}
-
-	for i, it := range indexedTorrents {
-		jLower := strings.ReplaceAll(strings.ToLower(fmt.Sprintf("%s %s", it.Title, it.OriginalTitle)), ".", " ")
-		qLower := strings.ToLower(q)
-		splitLength := 2
-		indexedTorrents[i].Similarity = edlib.JaccardSimilarity(jLower, qLower, splitLength)
-	}
-
-	// remove the ones with zero similarity
-	if len(indexedTorrents) > 20 && r.URL.Query().Get("filter_results") != "" && r.URL.Query().Get("q") != "" {
-		indexedTorrents = utils.Filter(indexedTorrents, func(it schema.IndexedTorrent) bool {
-			return it.Similarity > 0
-		})
-	}
-
-	// sort by similarity
-	slices.SortFunc(indexedTorrents, func(i, j schema.IndexedTorrent) int {
-		return int((j.Similarity - i.Similarity) * 1000)
+	// extract each torrent link
+	indexedTorrents := utils.ParallelMap(links, func(link string) ([]schema.IndexedTorrent, error) {
+		return getTorrentsTorrentDosFilmes(ctx, i, link)
 	})
 
-	// send to search index
-	go func() {
-		_ = i.search.IndexTorrents(indexedTorrents)
-	}()
+	// Apply post-processors
+	postProcessedTorrents := indexedTorrents
+	for _, processor := range i.postProcessors {
+		postProcessedTorrents = processor(i, r, postProcessedTorrents)
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(Response{
-		Results: indexedTorrents,
-		Count:   len(indexedTorrents),
+		Results: postProcessedTorrents,
+		Count:   len(postProcessedTorrents),
 	})
 	if err != nil {
 		fmt.Println(err)
@@ -191,7 +157,7 @@ func getTorrentsTorrentDosFilmes(ctx context.Context, i *Indexer, link string) (
 		}
 	})
 
-	size = stableUniq(size)
+	size = utils.StableUniq(size)
 
 	var chanIndexedTorrent = make(chan schema.IndexedTorrent)
 
@@ -222,7 +188,7 @@ func getTorrentsTorrentDosFilmes(ctx context.Context, i *Indexer, link string) (
 			}
 
 			ixt := schema.IndexedTorrent{
-				Title:         appendAudioISO639_2Code(releaseTitle, magnetAudio),
+				Title:         releaseTitle,
 				OriginalTitle: title,
 				Details:       link,
 				Year:          year,

@@ -1,7 +1,10 @@
 package handler
 
 import (
+	"bytes"
+	"context"
 	"fmt"
+	"io"
 	"regexp"
 	"slices"
 	"strings"
@@ -10,6 +13,43 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/felipemarinho97/torrent-indexer/schema"
 )
+
+// getDocument retrieves a document from the cache or makes a request to get it.
+// It first checks the Redis cache for the document body.
+func getDocument(ctx context.Context, i *Indexer, link string) (*goquery.Document, error) {
+	// try to get from redis first
+	docCache, err := i.redis.Get(ctx, link)
+	if err == nil {
+		i.metrics.CacheHits.WithLabelValues("document_body").Inc()
+		fmt.Printf("returning from long-lived cache: %s\n", link)
+		return goquery.NewDocumentFromReader(io.NopCloser(bytes.NewReader(docCache)))
+	}
+	defer i.metrics.CacheMisses.WithLabelValues("document_body").Inc()
+
+	resp, err := i.requester.GetDocument(ctx, link)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Close()
+
+	body, err := io.ReadAll(resp)
+	if err != nil {
+		return nil, err
+	}
+
+	// set cache
+	err = i.redis.Set(ctx, link, body)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	doc, err := goquery.NewDocumentFromReader(io.NopCloser(bytes.NewReader(body)))
+	if err != nil {
+		return nil, err
+	}
+
+	return doc, nil
+}
 
 func getPublishedDateFromMeta(document *goquery.Document) time.Time {
 	var date time.Time
