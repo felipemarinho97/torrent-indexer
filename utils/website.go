@@ -47,6 +47,7 @@ var commonWebsiteSLDs = []string{
 	"rapidotorrents",
 	"sitedetorrents",
 	"vamostorrent",
+	"AZTORRENTS",
 }
 
 var websitePatterns = []string{

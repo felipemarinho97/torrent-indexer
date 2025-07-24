@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
-	"slices"
 	"strings"
 	"time"
 
@@ -18,12 +17,13 @@ import (
 	"github.com/felipemarinho97/torrent-indexer/schema"
 	goscrape "github.com/felipemarinho97/torrent-indexer/scrape"
 	"github.com/felipemarinho97/torrent-indexer/utils"
-	"github.com/hbollon/go-edlib"
 )
 
 var comando = IndexerMeta{
-	URL:       "https://comando.la/",
-	SearchURL: "?s=",
+	Label:       "comando",
+	URL:         "https://comando.la/",
+	SearchURL:   "?s=",
+	PagePattern: "page/%s",
 }
 
 var replacer = strings.NewReplacer(
@@ -43,9 +43,11 @@ var replacer = strings.NewReplacer(
 
 func (i *Indexer) HandlerComandoIndexer(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
+	metadata := comando
+
 	defer func() {
-		i.metrics.IndexerDuration.WithLabelValues("comando").Observe(time.Since(start).Seconds())
-		i.metrics.IndexerRequests.WithLabelValues("comando").Inc()
+		i.metrics.IndexerDuration.WithLabelValues(metadata.Label).Observe(time.Since(start).Seconds())
+		i.metrics.IndexerRequests.WithLabelValues(metadata.Label).Inc()
 	}()
 
 	ctx := r.Context()
@@ -55,11 +57,11 @@ func (i *Indexer) HandlerComandoIndexer(w http.ResponseWriter, r *http.Request) 
 
 	// URL encode query param
 	q = url.QueryEscape(q)
-	url := comando.URL
+	url := metadata.URL
 	if q != "" {
-		url = fmt.Sprintf("%s%s%s", url, comando.SearchURL, q)
+		url = fmt.Sprintf("%s%s%s", url, metadata.SearchURL, q)
 	} else if page != "" {
-		url = fmt.Sprintf("%spage/%s", url, page)
+		url = fmt.Sprintf(fmt.Sprintf("%s%s", url, metadata.PagePattern), page)
 	}
 
 	fmt.Println("URL:>", url)
@@ -70,7 +72,7 @@ func (i *Indexer) HandlerComandoIndexer(w http.ResponseWriter, r *http.Request) 
 		if err != nil {
 			fmt.Println(err)
 		}
-		i.metrics.IndexerErrors.WithLabelValues("comando").Inc()
+		i.metrics.IndexerErrors.WithLabelValues(metadata.Label).Inc()
 		return
 	}
 	defer resp.Close()
@@ -82,7 +84,7 @@ func (i *Indexer) HandlerComandoIndexer(w http.ResponseWriter, r *http.Request) 
 		if err != nil {
 			fmt.Println(err)
 		}
-		i.metrics.IndexerErrors.WithLabelValues("comando").Inc()
+		i.metrics.IndexerErrors.WithLabelValues(metadata.Label).Inc()
 		return
 	}
 
@@ -116,34 +118,16 @@ func (i *Indexer) HandlerComandoIndexer(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 
-	for i, it := range indexedTorrents {
-		jLower := strings.ReplaceAll(strings.ToLower(fmt.Sprintf("%s %s", it.Title, it.OriginalTitle)), ".", " ")
-		qLower := strings.ToLower(q)
-		splitLength := 2
-		indexedTorrents[i].Similarity = edlib.JaccardSimilarity(jLower, qLower, splitLength)
+	// Apply post-processors
+	postProcessedTorrents := indexedTorrents
+	for _, processor := range i.postProcessors {
+		postProcessedTorrents = processor(i, r, postProcessedTorrents)
 	}
-
-	// remove the ones with zero similarity
-	if len(indexedTorrents) > 20 && r.URL.Query().Get("filter_results") != "" && r.URL.Query().Get("q") != "" {
-		indexedTorrents = utils.Filter(indexedTorrents, func(it schema.IndexedTorrent) bool {
-			return it.Similarity > 0
-		})
-	}
-
-	// sort by similarity
-	slices.SortFunc(indexedTorrents, func(i, j schema.IndexedTorrent) int {
-		return int((j.Similarity - i.Similarity) * 1000)
-	})
-
-	// send to search index
-	go func() {
-		_ = i.search.IndexTorrents(indexedTorrents)
-	}()
 
 	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(Response{
-		Results: indexedTorrents,
-		Count:   len(indexedTorrents),
+		Results: postProcessedTorrents,
+		Count:   len(postProcessedTorrents),
 	})
 	if err != nil {
 		fmt.Println(err)

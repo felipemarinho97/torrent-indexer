@@ -13,17 +13,18 @@ import (
 )
 
 type Indexer struct {
-	redis     *cache.Redis
-	metrics   *monitoring.Metrics
-	requester *requester.Requster
-	search    *meilisearch.SearchIndexer
+	redis          *cache.Redis
+	metrics        *monitoring.Metrics
+	requester      *requester.Requster
+	search         *meilisearch.SearchIndexer
+	postProcessors []PostProcessor
 }
 
 type IndexerMeta struct {
-	URL       string
-	SearchURL string
-	// pattern for pagination, e.g. "page/%s"
-	PagePattern string
+	Label       string // Label is used for Prometheus metrics and logging. Must be alphanumeric optionally with underscores.
+	URL         string // URL is the base URL of the indexer, e.g. "https://example.com/"
+	SearchURL   string // SearchURL is the base URL for search queries, e.g. "?s="
+	PagePattern string // PagePattern for pagination, e.g. "page/%s"
 }
 
 type Response struct {
@@ -31,12 +32,22 @@ type Response struct {
 	Count   int                     `json:"count"`
 }
 
+type PostProcessor func(*Indexer, *http.Request, []schema.IndexedTorrent) []schema.IndexedTorrent
+
 func NewIndexers(redis *cache.Redis, metrics *monitoring.Metrics, req *requester.Requster, si *meilisearch.SearchIndexer) *Indexer {
+	// Initialize post-processors
+	postProcessors := []PostProcessor{
+		AddSimilarityCheck,
+		CleanupTitleWebsites,
+		SendToSearchIndexer,
+	}
+
 	return &Indexer{
-		redis:     redis,
-		metrics:   metrics,
-		requester: req,
-		search:    si,
+		redis:          redis,
+		metrics:        metrics,
+		requester:      req,
+		search:         si,
+		postProcessors: postProcessors,
 	}
 }
 
