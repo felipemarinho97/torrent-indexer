@@ -208,7 +208,7 @@ func getTorrents(ctx context.Context, i *Indexer, link string) ([]schema.Indexed
 			if len(size) == len(magnetLinks) {
 				mySize = size[it]
 			}
-			if mySize == "" && i.magnetMetadataAPI.IsEnabled() {
+			if mySize == "" {
 				go func() {
 					_, _ = i.magnetMetadataAPI.FetchMetadata(ctx, magnetLink)
 				}()
