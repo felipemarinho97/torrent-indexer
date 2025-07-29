@@ -4,9 +4,12 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strconv"
+	"time"
 
 	handler "github.com/felipemarinho97/torrent-indexer/api"
 	"github.com/felipemarinho97/torrent-indexer/cache"
+	"github.com/felipemarinho97/torrent-indexer/magnet"
 	"github.com/felipemarinho97/torrent-indexer/monitoring"
 	"github.com/felipemarinho97/torrent-indexer/public"
 	"github.com/felipemarinho97/torrent-indexer/requester"
@@ -19,6 +22,16 @@ import (
 func main() {
 	redis := cache.NewRedis()
 	searchIndex := meilisearch.NewSearchIndexer(os.Getenv("MEILISEARCH_ADDRESS"), os.Getenv("MEILISEARCH_KEY"), "torrents")
+	var magnetMetadataAPI *magnet.MetadataClient
+	if os.Getenv("MAGNET_METADATA_API_ENABLED") == "true" {
+		timeout := 10 * time.Second
+		if v := os.Getenv("MAGNET_METADATA_API_TIMEOUT_SECONDS"); v != "" {
+			if t, err := strconv.Atoi(v); err == nil {
+				timeout = time.Duration(t) * time.Second
+			}
+		}
+		magnetMetadataAPI = magnet.NewClient(os.Getenv("MAGNET_METADATA_API_ADDRESS"), timeout, redis)
+	}
 	metrics := monitoring.NewMetrics()
 	metrics.Register()
 
@@ -39,7 +52,7 @@ func main() {
 		fmt.Println(err)
 	}
 
-	indexers := handler.NewIndexers(redis, metrics, req, searchIndex)
+	indexers := handler.NewIndexers(redis, metrics, req, searchIndex, magnetMetadataAPI)
 	search := handler.NewMeilisearchHandler(searchIndex)
 
 	indexerMux := http.NewServeMux()

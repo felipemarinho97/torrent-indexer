@@ -35,6 +35,45 @@ func SendToSearchIndexer(i *Indexer, _ *http.Request, torrents []schema.IndexedT
 	return torrents
 }
 
+// FullfilMissingMetadata fills in missing metadata for indexed torrents
+func FullfilMissingMetadata(i *Indexer, r *http.Request, torrents []schema.IndexedTorrent) []schema.IndexedTorrent {
+	if !i.magnetMetadataAPI.IsEnabled() {
+		return torrents
+	}
+
+	return utils.ParallelFlatMap(torrents, func(it schema.IndexedTorrent) ([]schema.IndexedTorrent, error) {
+		if it.Size != "" && it.Title != "" && it.OriginalTitle != "" {
+			return []schema.IndexedTorrent{it}, nil
+		}
+		m, err := i.magnetMetadataAPI.FetchMetadata(r.Context(), it.MagnetLink)
+		if err != nil {
+			return []schema.IndexedTorrent{it}, nil
+		}
+
+		// convert size in bytes to a human-readable format
+		it.Size = utils.FormatBytes(m.Size)
+
+		// Use name from metadata if available as it is more accurate
+		if m.Name != "" {
+			it.Title = m.Name
+		}
+		fmt.Printf("hash: %s get -> size: %s\n", m.InfoHash, it.Size)
+
+		// If files are present, add them to the indexed torrent
+		if len(m.Files) > 0 {
+			it.Files = make([]schema.File, len(m.Files))
+			for i, file := range m.Files {
+				it.Files[i] = schema.File{
+					Path: file.Path,
+					Size: utils.FormatBytes(file.Size),
+				}
+			}
+		}
+
+		return []schema.IndexedTorrent{it}, nil
+	})
+}
+
 func AddSimilarityCheck(i *Indexer, r *http.Request, torrents []schema.IndexedTorrent) []schema.IndexedTorrent {
 	q := r.URL.Query().Get("q")
 

@@ -80,7 +80,7 @@ func (i *Indexer) HandlerBluDVIndexer(w http.ResponseWriter, r *http.Request) {
 	})
 
 	// extract each torrent link
-	indexedTorrents := utils.ParallelMap(links, func(link string) ([]schema.IndexedTorrent, error) {
+	indexedTorrents := utils.ParallelFlatMap(links, func(link string) ([]schema.IndexedTorrent, error) {
 		return getTorrentsBluDV(ctx, i, link)
 	})
 
@@ -137,7 +137,7 @@ func getTorrentsBluDV(ctx context.Context, i *Indexer, link string) ([]schema.In
 		// if decoded magnet link is indeed a magnet link, append it
 		if strings.HasPrefix(magnetLinkDecoded, "magnet:") {
 			magnetLinks = append(magnetLinks, magnetLinkDecoded)
-		} else {
+		} else if !strings.Contains(magnetLinkDecoded, "watch.brplayer") {
 			fmt.Printf("WARN: link \"%s\" decoding resulted in non-magnet link: %s\n", href, magnetLinkDecoded)
 		}
 	})
@@ -210,6 +210,9 @@ func getTorrentsBluDV(ctx context.Context, i *Indexer, link string) ([]schema.In
 			var mySize string
 			if len(size) == len(magnetLinks) {
 				mySize = size[it]
+			}
+			if mySize == "" && i.magnetMetadataAPI.IsEnabled() {
+				go i.magnetMetadataAPI.FetchMetadata(ctx, magnetLink)
 			}
 
 			ixt := schema.IndexedTorrent{

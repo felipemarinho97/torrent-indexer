@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/felipemarinho97/torrent-indexer/cache"
+	"github.com/felipemarinho97/torrent-indexer/magnet"
 	"github.com/felipemarinho97/torrent-indexer/monitoring"
 	"github.com/felipemarinho97/torrent-indexer/requester"
 	"github.com/felipemarinho97/torrent-indexer/schema"
@@ -13,11 +14,12 @@ import (
 )
 
 type Indexer struct {
-	redis          *cache.Redis
-	metrics        *monitoring.Metrics
-	requester      *requester.Requster
-	search         *meilisearch.SearchIndexer
-	postProcessors []PostProcessorFunc
+	redis             *cache.Redis
+	metrics           *monitoring.Metrics
+	requester         *requester.Requster
+	search            *meilisearch.SearchIndexer
+	magnetMetadataAPI *magnet.MetadataClient
+	postProcessors    []PostProcessorFunc
 }
 
 type IndexerMeta struct {
@@ -35,19 +37,27 @@ type Response struct {
 type PostProcessorFunc func(*Indexer, *http.Request, []schema.IndexedTorrent) []schema.IndexedTorrent
 
 var GlobalPostProcessors = []PostProcessorFunc{
-	AddSimilarityCheck,   // Jaccard similarity
-	CleanupTitleWebsites, // Remove website names from titles
-	AppendAudioTags,      // Add (brazilian, eng, etc.) audio tags to titles
-	SendToSearchIndexer,  // Send indexed torrents to Meilisearch
+	AddSimilarityCheck,     // Jaccard similarity
+	FullfilMissingMetadata, // Fill missing size or title metadata
+	CleanupTitleWebsites,   // Remove website names from titles
+	AppendAudioTags,        // Add (brazilian, eng, etc.) audio tags to titles
+	SendToSearchIndexer,    // Send indexed torrents to Meilisearch
 }
 
-func NewIndexers(redis *cache.Redis, metrics *monitoring.Metrics, req *requester.Requster, si *meilisearch.SearchIndexer) *Indexer {
+func NewIndexers(
+	redis *cache.Redis,
+	metrics *monitoring.Metrics,
+	req *requester.Requster,
+	si *meilisearch.SearchIndexer,
+	mc *magnet.MetadataClient,
+) *Indexer {
 	return &Indexer{
-		redis:          redis,
-		metrics:        metrics,
-		requester:      req,
-		search:         si,
-		postProcessors: GlobalPostProcessors,
+		redis:             redis,
+		metrics:           metrics,
+		requester:         req,
+		search:            si,
+		magnetMetadataAPI: mc,
+		postProcessors:    GlobalPostProcessors,
 	}
 }
 
