@@ -64,6 +64,22 @@ builds:
     ldflags:
       - "-extldflags '-static'"
       - -s -w -X github.com/felipemarinho97/torrent-indexer/consts.gitSha={{.ShortCommit}} -X github.com/felipemarinho97/torrent-indexer/consts.gitTag={{.Version}}
+  
+  - id: torrentindexer_linux_riscv64
+    env:
+      - CGO_ENABLED=1
+      - CC=riscv64-linux-gnu-gcc
+      - CXX=riscv64-linux-gnu-g++
+      - PKG_CONFIG_PATH=/riscv64/lib/pkgconfig
+    goos:
+      - linux
+    goarch:
+      - riscv64
+    flags:
+      - -tags=netgo
+    ldflags:
+      - "-extldflags '-static'"
+      - -s -w -X github.com/felipemarinho97/torrent-indexer/consts.gitSha={{.ShortCommit}} -X github.com/felipemarinho97/torrent-indexer/consts.gitTag={{.Version}}
 
   - id: torrentindexer_windows_386
     env:
