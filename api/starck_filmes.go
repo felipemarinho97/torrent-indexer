@@ -79,7 +79,7 @@ func (i *Indexer) HandlerStarckFilmesIndexer(w http.ResponseWriter, r *http.Requ
 	})
 
 	// extract each torrent link
-	indexedTorrents := utils.ParallelMap(links, func(link string) ([]schema.IndexedTorrent, error) {
+	indexedTorrents := utils.ParallelFlatMap(links, func(link string) ([]schema.IndexedTorrent, error) {
 		return getTorrentStarckFilmes(ctx, i, link)
 	})
 
@@ -191,6 +191,11 @@ func getTorrentStarckFilmes(ctx context.Context, i *Indexer, link string) ([]sch
 			var mySize string
 			if len(size) == len(magnetLinks) {
 				mySize = size[it]
+			}
+			if mySize == "" {
+				go func() {
+					_, _ = i.magnetMetadataAPI.FetchMetadata(ctx, magnetLink)
+				}()
 			}
 
 			ixt := schema.IndexedTorrent{

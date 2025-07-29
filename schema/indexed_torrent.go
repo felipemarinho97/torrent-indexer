@@ -14,7 +14,13 @@ type IndexedTorrent struct {
 	InfoHash      string    `json:"info_hash"`
 	Trackers      []string  `json:"trackers"`
 	Size          string    `json:"size"`
+	Files         []File    `json:"files,omitempty"`
 	LeechCount    int       `json:"leech_count"`
 	SeedCount     int       `json:"seed_count"`
 	Similarity    float32   `json:"similarity"`
+}
+
+type File struct {
+	Path string `json:"path"`
+	Size string `json:"size"`
 }

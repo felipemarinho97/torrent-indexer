@@ -19,9 +19,9 @@ func Filter[A any](arr []A, f func(A) bool) []A {
 	return res
 }
 
-// ParallelMap applies a function to each item in the iterable concurrently
+// ParallelFlatMap applies a function to each item in the iterable concurrently
 // and returns a slice of results. It can handle errors by passing an error handler function.
-func ParallelMap[T any, R any](iterable []T, mapper func(item T) ([]R, error), errHandler ...func(error)) []R {
+func ParallelFlatMap[T any, R any](iterable []T, mapper func(item T) ([]R, error), errHandler ...func(error)) []R {
 	var itChan = make(chan []R)
 	var errChan = make(chan error)
 	mappedItems := []R{}
@@ -88,4 +88,20 @@ func IsValidHTML(input string) bool {
 	r := strings.NewReader(input)
 	_, err := html.Parse(r)
 	return err == nil
+}
+
+// FormatBytes formats a byte size into a human-readable string.
+// It converts bytes to KB, MB, or GB as appropriate.
+func FormatBytes(bytes int64) string {
+	if bytes < 1024 {
+		return fmt.Sprintf("%d B", bytes)
+	} else if bytes < 1024*1024 {
+		return fmt.Sprintf("%.2f KB", float64(bytes)/1024)
+	} else if bytes < 1024*1024*1024 {
+		return fmt.Sprintf("%.2f MB", float64(bytes)/(1024*1024))
+	} else if bytes < 1024*1024*1024*1024 {
+		return fmt.Sprintf("%.2f GB", float64(bytes)/(1024*1024*1024))
+	} else {
+		return fmt.Sprintf("%.2f TB", float64(bytes)/(1024*1024*1024*1024))
+	}
 }

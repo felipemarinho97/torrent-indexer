@@ -21,7 +21,7 @@ var torrent_dos_filmes = IndexerMeta{
 	Label:       "torrent_dos_filmes",
 	URL:         "https://torrentdosfilmes.se/",
 	SearchURL:   "?s=",
-	PagePattern: "page/%s",
+	PagePattern: "category/dublado/page/%s",
 }
 
 func (i *Indexer) HandlerTorrentDosFilmesIndexer(w http.ResponseWriter, r *http.Request) {
@@ -79,7 +79,7 @@ func (i *Indexer) HandlerTorrentDosFilmesIndexer(w http.ResponseWriter, r *http.
 	})
 
 	// extract each torrent link
-	indexedTorrents := utils.ParallelMap(links, func(link string) ([]schema.IndexedTorrent, error) {
+	indexedTorrents := utils.ParallelFlatMap(links, func(link string) ([]schema.IndexedTorrent, error) {
 		return getTorrentsTorrentDosFilmes(ctx, i, link)
 	})
 
@@ -185,6 +185,11 @@ func getTorrentsTorrentDosFilmes(ctx context.Context, i *Indexer, link string) (
 			var mySize string
 			if len(size) == len(magnetLinks) {
 				mySize = size[it]
+			}
+			if mySize == "" {
+				go func() {
+					_, _ = i.magnetMetadataAPI.FetchMetadata(ctx, magnetLink)
+				}()
 			}
 
 			ixt := schema.IndexedTorrent{

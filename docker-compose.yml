@@ -11,9 +11,16 @@ services:
       - indexer
     environment:
       - REDIS_HOST=redis
-      - MEILISEARCH_ADDRESS=http://meilisearch:7700
-      - MEILISEARCH_KEY=my-secret-key
       - FLARESOLVERR_ADDRESS=http://flaresolverr:8191
+
+      ## Meilisearch configuration (optional)
+      # - MEILISEARCH_ADDRESS=http://meilisearch:7700
+      # - MEILISEARCH_KEY=my-secret-key
+
+      ## Magnet Metadata API configuration (optional)
+      # - MAGNET_METADATA_API_ENABLED=false
+      # - MAGNET_METADATA_API_ADDRESS=http://magnet-metadata-api:8080
+      # - MAGNET_METADATA_API_TIMEOUT_SECONDS=10
   
   redis:
     image: redis:alpine
@@ -22,17 +29,45 @@ services:
     networks:
       - indexer
 
-  # This container is not necessary for the indexer to work,
-  # deploy if you want to use the search feature
-  meilisearch: 
-    image: getmeili/meilisearch:latest
-    container_name: meilisearch
-    restart: unless-stopped
-    networks:
-      - indexer
-    environment:
-      - MEILI_NO_ANALYTICS=true
-      - MEILI_MASTER_KEY=my-secret-key
+  ##### MEILISEARCH #####
+  ## This container is not necessary for the indexer to work,
+  ## deploy if you want to use the search feature
+  #
+  # meilisearch: 
+  #   image: getmeili/meilisearch:latest
+  #   container_name: meilisearch
+  #   restart: unless-stopped
+  #   networks:
+  #     - indexer
+  #   environment:
+  #     - MEILI_NO_ANALYTICS=true
+  #     - MEILI_MASTER_KEY=my-secret-key
+
+  ##### MAGNET METADATA API #####
+  ## This container is not necessary for the indexer to work,
+  ## deploy if you want to fetch metadata from p2p network
+  ## CAUTION: Never deploy this container on a cloud server (AWS, GCP, Azure, Oracle), or you will get banned!
+  #
+  # magnet-metadata-api:
+  #   image: felipemarinho97/magnet-metadata-api:latest
+  #   container_name: magnet-metadata-api
+  #   restart: unless-stopped
+  #   ports:
+  #     - "8999:8080"
+  #     - "42069:42069"
+  #   networks:
+  #     - indexer
+  #   environment:
+  #     - PORT=8080
+  #     - REDIS_URL=redis://redis:6379
+  #     - CACHE_DIR=/home/torrent/cache
+  #     - ENABLE_DOWNLOADS=false
+  #     - DOWNLOAD_BASE_URL=http://localhost:8999
+  #     - CLIENT_PORT=42069
+  #     - SEEDING_ENABLED=false
+  #     - FALLBACK_INITIAL_CHUNK_SIZE_KB=24
+  #   volumes:
+  #     - ./magnet-metadata-cache:/home/torrent/cache
 
 networks:
   indexer:
