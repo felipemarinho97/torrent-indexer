@@ -1,5 +1,6 @@
 # GoReleaser config
 project_name: torrent-indexer
+version: 2
 
 builds:
   - id: torrentindexer_linux_amd64
@@ -131,13 +132,13 @@ builds:
 archives:
   - format_overrides:
       - goos: windows
-        format: zip
+        formats: zip
 
 checksum:
   name_template: "{{ .ProjectName }}_checksums.txt"
 
 snapshot:
-  name_template: "{{ .Tag }}-SNAPSHOT"
+  version_template: "{{ .Tag }}-SNAPSHOT"
 
 release:
   draft: true
