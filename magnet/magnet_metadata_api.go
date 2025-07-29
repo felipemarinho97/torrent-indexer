@@ -59,6 +59,9 @@ func (c *MetadataClient) IsEnabled() bool {
 }
 
 func (c *MetadataClient) FetchMetadata(ctx context.Context, magnetURI string) (*MetadataResponse, error) {
+	if !c.IsEnabled() {
+		return nil, fmt.Errorf("magnet metadata API is not enabled")
+	}
 	// Check cache first
 	m, err := ParseMagnetUri(magnetURI)
 	if err != nil {
