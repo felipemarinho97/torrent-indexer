@@ -1,10 +1,11 @@
 # GoReleaser config
 project_name: torrent-indexer
+version: 2
 
 builds:
   - id: torrentindexer_linux_amd64
     env:
-      - CGO_ENABLED=1
+      - CGO_ENABLED=0
     goos:
       - linux
     goarch:
@@ -17,7 +18,7 @@ builds:
 
   - id: torrentindexer_linux_386
     env:
-      - CGO_ENABLED=1
+      - CGO_ENABLED=0
       - PKG_CONFIG_PATH=/i386/lib/pkgconfig
     goos:
       - linux
@@ -31,7 +32,7 @@ builds:
 
   - id: torrentindexer_linux_arm
     env:
-      - CGO_ENABLED=1
+      - CGO_ENABLED=0
       - CC=arm-linux-gnueabi-gcc
       - CXX=arm-linux-gnueabi-g++
       - PKG_CONFIG_PATH=/arm/lib/pkgconfig
@@ -51,7 +52,7 @@ builds:
 
   - id: torrentindexer_linux_arm64
     env:
-      - CGO_ENABLED=1
+      - CGO_ENABLED=0
       - CC=aarch64-linux-gnu-gcc
       - CXX=aarch64-linux-gnu-g++
       - PKG_CONFIG_PATH=/arm64/lib/pkgconfig
@@ -64,10 +65,26 @@ builds:
     ldflags:
       - "-extldflags '-static'"
       - -s -w -X github.com/felipemarinho97/torrent-indexer/consts.gitSha={{.ShortCommit}} -X github.com/felipemarinho97/torrent-indexer/consts.gitTag={{.Version}}
+  
+  - id: torrentindexer_linux_riscv64
+    env:
+      - CGO_ENABLED=0
+      - CC=riscv64-linux-gnu-gcc
+      - CXX=riscv64-linux-gnu-g++
+      - PKG_CONFIG_PATH=/riscv64/lib/pkgconfig
+    goos:
+      - linux
+    goarch:
+      - riscv64
+    flags:
+      - -tags=netgo
+    ldflags:
+      - "-extldflags '-static'"
+      - -s -w -X github.com/felipemarinho97/torrent-indexer/consts.gitSha={{.ShortCommit}} -X github.com/felipemarinho97/torrent-indexer/consts.gitTag={{.Version}}
 
   - id: torrentindexer_windows_386
     env:
-      - CGO_ENABLED=1
+      - CGO_ENABLED=0
       - CC=i686-w64-mingw32-gcc
       - CXX=i686-w64-mingw32-g++
       - PKG_CONFIG_PATH=/mingw32/lib/pkgconfig
@@ -83,7 +100,7 @@ builds:
 
   - id: torrentindexer_windows_amd64
     env:
-      - CGO_ENABLED=1
+      - CGO_ENABLED=0
       - CC=x86_64-w64-mingw32-gcc
       - CXX=x86_64-w64-mingw32-g++
       - PKG_CONFIG_PATH=/mingw64/lib/pkgconfig
@@ -99,7 +116,7 @@ builds:
 
   - id: torrentindexer_darwin_amd64
     env:
-      - CGO_ENABLED=1
+      - CGO_ENABLED=0
       - CC=o64-clang
       - CXX=o64-clang++
       - PKG_CONFIG_PATH=/darwin/lib/pkgconfig
@@ -115,13 +132,13 @@ builds:
 archives:
   - format_overrides:
       - goos: windows
-        format: zip
+        formats: zip
 
 checksum:
   name_template: "{{ .ProjectName }}_checksums.txt"
 
 snapshot:
-  name_template: "{{ .Tag }}-SNAPSHOT"
+  version_template: "{{ .Tag }}-SNAPSHOT"
 
 release:
   draft: true

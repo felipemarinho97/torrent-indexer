@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/felipemarinho97/torrent-indexer/cache"
+	"github.com/felipemarinho97/torrent-indexer/consts"
 	"github.com/felipemarinho97/torrent-indexer/magnet"
 	"github.com/felipemarinho97/torrent-indexer/monitoring"
 	"github.com/felipemarinho97/torrent-indexer/requester"
@@ -66,7 +67,8 @@ func HandlerIndex(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	err := json.NewEncoder(w).Encode(map[string]interface{}{
-		"time": currentTime,
+		"time":  currentTime,
+		"build": consts.GetBuildInfo(),
 		"endpoints": map[string]interface{}{
 			"/indexers/comando_torrents": []map[string]interface{}{
 				{
