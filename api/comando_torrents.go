@@ -93,6 +93,11 @@ func (i *Indexer) HandlerComandoIndexer(w http.ResponseWriter, r *http.Request) 
 		links = append(links, link)
 	})
 
+	// if no links were indexed, expire the document in cache
+	if len(links) == 0 {
+		i.requester.ExpireDocument(ctx, url)
+	}
+
 	// extract each torrent link
 	indexedTorrents := utils.ParallelFlatMap(links, func(link string) ([]schema.IndexedTorrent, error) {
 		return getTorrents(ctx, i, link)
