@@ -50,7 +50,7 @@ func (i *Requster) GetDocument(ctx context.Context, url string) (io.ReadCloser, 
 	resp, err := i.httpClient.Get(url)
 	if err != nil {
 		// try request with flare solverr
-		body, err = i.fs.Get(url)
+		body, err = i.fs.Get(url, 3)
 		if err != nil {
 			return nil, fmt.Errorf("failed to do request for url %s: %w", url, err)
 		}
@@ -65,7 +65,7 @@ func (i *Requster) GetDocument(ctx context.Context, url string) (io.ReadCloser, 
 	}
 	if hasChallange(bodyByte) {
 		// try request with flare solverr
-		body, err = i.fs.Get(url)
+		body, err = i.fs.Get(url, 3)
 		if err != nil {
 			return nil, fmt.Errorf("failed to do request for url %s: %w", url, err)
 		}
@@ -90,6 +90,11 @@ func (i *Requster) GetDocument(ctx context.Context, url string) (io.ReadCloser, 
 	}
 
 	return io.NopCloser(bytes.NewReader(bodyByte)), nil
+}
+
+func (i *Requster) ExpireDocument(ctx context.Context, url string) error {
+	key := fmt.Sprintf("%s:%s", cacheKey, url)
+	return i.c.Del(ctx, key)
 }
 
 // hasChallange checks if the body contains a challange by regex matching
