@@ -2,9 +2,7 @@ package utils
 
 import (
 	"fmt"
-	"strings"
-
-	"golang.org/x/net/html"
+	"regexp"
 )
 
 // Filter filters a slice based on a predicate function.
@@ -84,10 +82,19 @@ func StableUniq(s []string) []string {
 	return uniqValues
 }
 
+var (
+	doctypeRegex = regexp.MustCompile(`(?i)<!DOCTYPE\s+html>`)
+	htmlTagRegex = regexp.MustCompile(`(?i)<html[\s\S]*?>[\s\S]*?</html>`)
+	bodyTagRegex = regexp.MustCompile(`(?i)<body[\s\S]*?>[\s\S]*?</body>`)
+)
+
 func IsValidHTML(input string) bool {
-	r := strings.NewReader(input)
-	_, err := html.Parse(r)
-	return err == nil
+	// Check for <!DOCTYPE>, <html>, or <body> tags
+	if !doctypeRegex.MatchString(input) && !htmlTagRegex.MatchString(input) && !bodyTagRegex.MatchString(input) {
+		return false
+	}
+
+	return true
 }
 
 // FormatBytes formats a byte size into a human-readable string.
