@@ -21,7 +21,9 @@ func CleanupTitleWebsites(_ *Indexer, _ *http.Request, torrents []schema.Indexed
 
 func AppendAudioTags(_ *Indexer, _ *http.Request, torrents []schema.IndexedTorrent) []schema.IndexedTorrent {
 	for i, it := range torrents {
-		torrents[i].Title = appendAudioISO639_2Code(torrents[i].Title, it.Audio)
+		// reprocess audio tags in case any middleware has changed the title
+		torrents[i].Audio = getAudioFromTitle(it.Title, it.Audio)
+		torrents[i].Title = appendAudioISO639_2Code(torrents[i].Title, torrents[i].Audio)
 	}
 
 	return torrents
