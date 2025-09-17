@@ -66,8 +66,14 @@ func (h *MeilisearchHandler) SearchTorrentHandler(w http.ResponseWriter, r *http
 		return
 	}
 
+	// Format response to match indexers structure
+	response := map[string]interface{}{
+		"results": results,
+		"count":   len(results),
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(results); err != nil {
+	if err := json.NewEncoder(w).Encode(response); err != nil {
 		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
 	}
 }

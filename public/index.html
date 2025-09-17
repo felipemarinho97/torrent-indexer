@@ -179,7 +179,8 @@
           throw new Error('Search failed');
         }
 
-        const results = await response.json();
+        const data = await response.json();
+        const results = data.results || data; // Support both new format and fallback to old
         const resultsContainer = document.getElementById('results');
         
         if (results.length === 0) {

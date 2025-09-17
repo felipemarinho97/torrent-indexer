@@ -157,6 +157,7 @@ settings:
     label: Indexer
     default: bludv
     options:
+      search: Torrent-Indexer Cache
       bludv: BLUDV
       comando_torrents: Comando Torrents
       torrent-dos-filmes: Torrent dos Filmes
@@ -166,7 +167,7 @@ settings:
 
 search:
   paths:
-    - path: "/indexers/{{ .Config.indexer }}"
+    - path: "{{ if eq .Config.indexer \"search\" }}/search{{ else }}/indexers/{{ .Config.indexer }}{{ end }}"
       response:
         type: json
   inputs:
