@@ -76,6 +76,15 @@ func FullfilMissingMetadata(i *Indexer, r *http.Request, torrents []schema.Index
 	})
 }
 
+func FallbackPostTitle(i *Indexer, r *http.Request, torrents []schema.IndexedTorrent) []schema.IndexedTorrent {
+	for i := range torrents {
+		if torrents[i].Title == "" {
+			torrents[i].Title = fmt.Sprintf("[FALLBACK] %s", torrents[i].OriginalTitle)
+		}
+	}
+	return torrents
+}
+
 func AddSimilarityCheck(i *Indexer, r *http.Request, torrents []schema.IndexedTorrent) []schema.IndexedTorrent {
 	q := r.URL.Query().Get("q")
 
