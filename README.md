@@ -13,7 +13,7 @@ Visit [https://torrent-indexer.darklyn.org/](https://torrent-indexer.darklyn.org
 - [comando-torrents](https://comando.la/)
 - [bludv](https://bludvfilmes.tv/)
 - [torrent-dos-filmes](https://torrentdosfilmes.se/)
-- [starck-filmes](https://www.starckfilmes.online/)
+- [starck-filmes](https://www.starckfilmes.fans/)
 - [comandohds](https://comandohds.org/)
 - [rede-torrent](https://redetorrent.com/)
 
@@ -33,6 +33,7 @@ The server will be available at [http://localhost:8080/](http://localhost:8080/)
 You can configure the server using the following environment variables:
   
 - `PORT`: (optional) The port that the server will listen to. Default: `7006`
+- `METRICS_PORT`: (optional) The port that the metrics server will listen to. Default: `8081`
 - `FLARESOLVERR_ADDRESS`: (optional) The address of the FlareSolverr instance. Default: `N/A`
 - `MEILISEARCH_ADDRESS`: (optional) The address of the MeiliSearch instance. Default: `N/A`
 - `MEILISEARCH_KEY`: (optional) The API key of the MeiliSearch instance. Default: `N/A`
@@ -42,6 +43,13 @@ You can configure the server using the following environment variables:
     - Example: `30m`, `1h`, `1h30m`, `1h30m30s`
 - `LONG_LIVED_CACHE_EXPIRATION` (optional) The expiration time of the long-lived cache in duration format. Default: `7d`
     - This cache is used to store the torrent webpages (posts). You can set it to a higher value because the torrent pages are not updated frequently.
+
+### Extra Configuration
+- `FALLBACK_TITLE_ENABLED`: (optional) Enable the fallback title post-processor that sets the title to "[UNSAFE] {original_title}" (Page title) if the title is empty. Default: `false`
+    - This is useful for sites that do not have a title for some torrents, but can lead to misleading titles.
+- `MAGNET_METADATA_API_ENABLED`: (optional) Enable the magnet metadata API. (deploy instrucitons [here](https://github.com/felipemarinho97/magnet-metadata-api)) Default: `false`
+- `MAGNET_METADATA_API_ADDRESS`: (optional) The address of your magnet metadata API. Default: `N/A`
+- `MAGNET_METADATA_API_TIMEOUT_SECONDS`: (optional) The timeout for the magnet metadata API requests in seconds. Default: `10`
 
 ## Integrating with Jackett
 
