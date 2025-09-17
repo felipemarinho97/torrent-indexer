@@ -48,3 +48,7 @@ func (r *Redis) Set(ctx context.Context, key string, value []byte) error {
 func (r *Redis) SetWithExpiration(ctx context.Context, key string, value []byte, expiration time.Duration) error {
 	return r.client.Set(ctx, key, value, expiration).Err()
 }
+
+func (r *Redis) Del(ctx context.Context, key string) error {
+	return r.client.Del(ctx, key).Err()
+}

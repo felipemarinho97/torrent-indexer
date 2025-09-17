@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/felipemarinho97/torrent-indexer/utils"
 )
@@ -29,7 +30,9 @@ var (
 
 func NewFlareSolverr(url string, timeoutMilli int) *FlareSolverr {
 	poolSize := 5
-	httpClient := &http.Client{}
+	httpClient := &http.Client{
+		Timeout: time.Duration(timeoutMilli) * time.Millisecond,
+	}
 	sessionPool := make(chan string, poolSize) // Pool size of 5 sessions
 
 	f := &FlareSolverr{
@@ -191,7 +194,7 @@ type Response struct {
 	} `json:"solution"`
 }
 
-func (f *FlareSolverr) Get(_url string) (io.ReadCloser, error) {
+func (f *FlareSolverr) Get(_url string, attempts int) (io.ReadCloser, error) {
 	// Check if the FlareSolverr instance was initiated
 	if !f.initiated {
 		return io.NopCloser(bytes.NewReader([]byte(""))), nil
@@ -205,10 +208,10 @@ func (f *FlareSolverr) Get(_url string) (io.ReadCloser, error) {
 		f.sessionPool <- session
 	}()
 
-	body := map[string]string{
+	body := map[string]interface{}{
 		"cmd":        "request.get",
 		"url":        _url,
-		"maxTimeout": fmt.Sprintf("%d", f.maxTimeout),
+		"maxTimeout": f.maxTimeout,
 		"session":    session,
 	}
 	jsonBody, err := json.Marshal(body)
@@ -237,7 +240,15 @@ func (f *FlareSolverr) Get(_url string) (io.ReadCloser, error) {
 
 	// Check if the response was successful
 	if response.Status != "ok" {
-		return nil, fmt.Errorf("failed to get response: %s", response.Message)
+		// if is 500 Internal Server Error, recursively call the Get method
+		if resp.StatusCode == http.StatusInternalServerError && attempts != 0 {
+			attempts--
+			fmt.Printf("[FlareSolverr] Internal Server Error for %s, retrying...\n", _url)
+			return f.Get(_url, attempts) // Retry the request
+		}
+
+		// log the http status code
+		return nil, fmt.Errorf("failed to get response: %s, statusCode: %s", response.Message, resp.Status)
 	}
 
 	// Check if "Under attack" is in the response
@@ -248,6 +259,7 @@ func (f *FlareSolverr) Get(_url string) (io.ReadCloser, error) {
 	// check if the response is valid HTML
 	if !utils.IsValidHTML(response.Solution.Response) {
 		fmt.Printf("[FlareSolverr] Invalid HTML response from %s\n", _url)
+		fmt.Printf("[FlareSolverr] Response: %s\n", response.Solution.Response)
 		response.Solution.Response = ""
 	}
 
