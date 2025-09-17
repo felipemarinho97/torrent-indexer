@@ -15,6 +15,7 @@ import (
 )
 
 type Indexer struct {
+	config            IndexersConfig
 	redis             *cache.Redis
 	metrics           *monitoring.Metrics
 	requester         *requester.Requster
@@ -46,7 +47,12 @@ var GlobalPostProcessors = []PostProcessorFunc{
 	SendToSearchIndexer,    // Send indexed torrents to Meilisearch
 }
 
+type IndexersConfig struct {
+	FallbackTitleEnabled bool
+}
+
 func NewIndexers(
+	config IndexersConfig,
 	redis *cache.Redis,
 	metrics *monitoring.Metrics,
 	req *requester.Requster,
@@ -54,6 +60,7 @@ func NewIndexers(
 	mc *magnet.MetadataClient,
 ) *Indexer {
 	return &Indexer{
+		config:            config,
 		redis:             redis,
 		metrics:           metrics,
 		requester:         req,

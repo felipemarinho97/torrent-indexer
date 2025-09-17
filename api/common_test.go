@@ -41,7 +41,7 @@ func Test_getPublishedDateFromRawString(t *testing.T) {
 		{
 			name: "should parse date from starck-filmes link",
 			args: args{
-				dateStr: "https://www.starckfilmes.online/catalog/jogos-de-seducao-2025-18-07-2025/",
+				dateStr: "https://www.starckfilmes.fans/catalog/jogos-de-seducao-2025-18-07-2025/",
 			},
 			want: time.Date(2025, 7, 18, 0, 0, 0, 0, time.UTC),
 		},

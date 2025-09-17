@@ -19,7 +19,7 @@ import (
 
 var starck_filmes = IndexerMeta{
 	Label:       "starck_filmes",
-	URL:         "https://www.starckfilmes.online/",
+	URL:         "https://www.starckfilmes.fans/",
 	SearchURL:   "?s=",
 	PagePattern: "page/%s",
 }
@@ -45,6 +45,11 @@ func (i *Indexer) HandlerStarckFilmesIndexer(w http.ResponseWriter, r *http.Requ
 		url = fmt.Sprintf("%s%s%s", url, metadata.SearchURL, q)
 	} else if page != "" {
 		url = fmt.Sprintf(fmt.Sprintf("%s%s", url, metadata.PagePattern), page)
+	}
+
+	// if search is empty, redirect to page 1
+	if q == "" {
+		url = fmt.Sprintf(fmt.Sprintf("%s%s", url, metadata.PagePattern), "1")
 	}
 
 	fmt.Println("URL:>", url)

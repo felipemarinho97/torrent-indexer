@@ -77,9 +77,13 @@ func FullfilMissingMetadata(i *Indexer, r *http.Request, torrents []schema.Index
 }
 
 func FallbackPostTitle(i *Indexer, r *http.Request, torrents []schema.IndexedTorrent) []schema.IndexedTorrent {
+	if !i.config.FallbackTitleEnabled {
+		return torrents
+	}
+
 	for i := range torrents {
 		if torrents[i].Title == "" {
-			torrents[i].Title = fmt.Sprintf("[FALLBACK] %s", torrents[i].OriginalTitle)
+			torrents[i].Title = fmt.Sprintf("[UNSAFE] %s", torrents[i].OriginalTitle)
 		}
 	}
 	return torrents
