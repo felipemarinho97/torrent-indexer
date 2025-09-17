@@ -215,8 +215,25 @@ search:
       text: "{{ if .Result.category_is_tv_show }}TV{{ else }}Movies{{ end }}"
 ```
 
+
+## Mirrors
+
+- **[https://torrent-indexer.darklyn.org/](https://torrent-indexer.darklyn.org/)** (Default - points to São Paulo mirror)
+- **[https://torrent-indexer.br-sp1.darklyn.org/](https://torrent-indexer.br-sp1.darklyn.org/)** (Southeast - São Paulo)
+- **[https://torrent-indexer.br-pb1.darklyn.org/](https://torrent-indexer.br-pb1.darklyn.org/)** (Northeast - Paraíba)
+
+### Community Mirrors
+
+If you're running a public instance of torrent-indexer and would like to share it with the community, please open a **Merge Request** adding your instance to this list!
+
+**Requirements for community mirrors:**
+- Must be publicly accessible
+- Should have reasonable uptime
+- Include geographic location information
+- Provide contact information for maintenance issues
+
 # Warning
 
 The instance running at [https://torrent-indexer.darklyn.org/](https://torrent-indexer.darklyn.org/) is my personal instance and it is not guaranteed to be up all the time. Also, for better availability, I recommend deploying your own instance because the Cloudflare protection may block requests from indexed sites if too many requests are made in a short period of time from the same IP.
 
-If I notice that the instance is being used a lot, I may block requests from Jackett to avoid overloading the server without prior notice.
+If I notice that the instance is being used a lot, I may block requests from Jackett/Prowlarr to avoid overloading the server without prior notice.
