@@ -52,7 +52,11 @@ func main() {
 		fmt.Println(err)
 	}
 
-	indexers := handler.NewIndexers(redis, metrics, req, searchIndex, magnetMetadataAPI)
+	icfg := handler.IndexersConfig{
+		FallbackTitleEnabled: os.Getenv("FALLBACK_TITLE_ENABLED") == "true",
+	}
+
+	indexers := handler.NewIndexers(icfg, redis, metrics, req, searchIndex, magnetMetadataAPI)
 	search := handler.NewMeilisearchHandler(searchIndex)
 
 	indexerMux := http.NewServeMux()
@@ -73,8 +77,13 @@ func main() {
 
 	metricsMux.Handle("/metrics", promhttp.Handler())
 
+	metricsPort := os.Getenv("METRICS_PORT")
+	if metricsPort == "" {
+		metricsPort = "8081"
+	}
+
 	go func() {
-		err := http.ListenAndServe(":8081", metricsMux)
+		err := http.ListenAndServe(":"+metricsPort, metricsMux)
 		if err != nil {
 			panic(err)
 		}
@@ -85,7 +94,7 @@ func main() {
 		port = "7006"
 	}
 
-	fmt.Printf("Server listening on :%s\n", port)
+	fmt.Printf("Server listening on http://localhost:%s\n", port)
 	err = http.ListenAndServe(":"+port, indexerMux)
 	if err != nil {
 		panic(err)
