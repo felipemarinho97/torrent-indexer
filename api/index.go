@@ -41,6 +41,7 @@ var GlobalPostProcessors = []PostProcessorFunc{
 	AddSimilarityCheck,     // Jaccard similarity
 	FullfilMissingMetadata, // Fill missing size or title metadata
 	CleanupTitleWebsites,   // Remove website names from titles
+	FallbackPostTitle,      // Fallback to original title if empty
 	AppendAudioTags,        // Add (brazilian, eng, etc.) audio tags to titles
 	SendToSearchIndexer,    // Send indexed torrents to Meilisearch
 }
