@@ -221,6 +221,7 @@ search:
 - **[https://torrent-indexer.darklyn.org/](https://torrent-indexer.darklyn.org/)** (Default - points to São Paulo mirror)
 - **[https://torrent-indexer.br-sp1.darklyn.org/](https://torrent-indexer.br-sp1.darklyn.org/)** (Southeast - São Paulo)
 - **[https://torrent-indexer.br-pb1.darklyn.org/](https://torrent-indexer.br-pb1.darklyn.org/)** (Northeast - Paraíba)
+- **[https://torrent-indexer.us-sc1.darklyn.org/](https://torrent-indexer.us-sc1.darklyn.org/)** (US East - South Carolina)
 
 ### Community Mirrors
 
