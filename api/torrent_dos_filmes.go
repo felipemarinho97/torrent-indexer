@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 	"time"
 
@@ -24,6 +25,144 @@ var torrent_dos_filmes = IndexerMeta{
 	PagePattern: "category/dublado/page/%s",
 }
 
+// Função para criar título padronizado substituindo apenas o início
+func createStandardizedTitleTDF(originalTitle, year, releaseTitle string) string {
+	// Se não tiver originalTitle, retorna o magnet original
+	if originalTitle == "" {
+		return releaseTitle
+	}
+	
+	// Limpa o título original (remove caracteres especiais, substitui espaços por pontos)
+	cleanOriginalTitle := strings.ReplaceAll(originalTitle, " ", ".")
+	cleanOriginalTitle = regexp.MustCompile(`[^\w\.\-]`).ReplaceAllString(cleanOriginalTitle, "")
+	
+	// Regex para encontrar ano (4 dígitos)
+	yearRegex := regexp.MustCompile(`(19|20)\d{2}`)
+	
+	// Regex para encontrar temporada (SxxExx ou SxxE padrão)
+	seasonRegex := regexp.MustCompile(`(?i)s\d{1,2}e?\d{0,2}`)
+	
+	// Procura por ano primeiro
+	if yearMatch := yearRegex.FindStringIndex(releaseTitle); yearMatch != nil {
+		// Encontrou ano - substitui tudo antes do ano
+		beforeYear := releaseTitle[:yearMatch[0]]
+		fromYear := releaseTitle[yearMatch[0]:]
+		
+		// Remove pontos/espaços extras no final do início
+		beforeYear = strings.TrimRight(beforeYear, ". ")
+		if beforeYear != "" {
+			return cleanOriginalTitle + "." + fromYear
+		} else {
+			return cleanOriginalTitle + "." + fromYear
+		}
+	}
+	
+	// Se não encontrou ano, procura por temporada
+	if seasonMatch := seasonRegex.FindStringIndex(releaseTitle); seasonMatch != nil {
+		// Encontrou temporada - substitui tudo antes da temporada
+		beforeSeason := releaseTitle[:seasonMatch[0]]
+		fromSeason := releaseTitle[seasonMatch[0]:]
+		
+		// Remove pontos/espaços extras no final do início
+		beforeSeason = strings.TrimRight(beforeSeason, ". ")
+		if beforeSeason != "" {
+			return cleanOriginalTitle + "." + fromSeason
+		} else {
+			return cleanOriginalTitle + "." + fromSeason
+		}
+	}
+	
+	// Se não encontrou nem ano nem temporada, retorna o magnet original
+	return releaseTitle
+}
+
+// Função para fazer busca com variações do termo - TorrentDosFilmes
+func (i *Indexer) trySearchVariationsTDF(ctx context.Context, baseURL, searchURL, query string) ([]string, error) {
+	if query == "" {
+		return nil, nil
+	}
+	
+	// Cria variações do termo de busca
+	variations := []string{
+		query, // "Amateur 2025"
+	}
+	
+	// Adiciona variação com "The" se não começar com "The"
+	firstWord := strings.Split(query, " ")[0]
+	if !strings.HasPrefix(strings.ToLower(query), "the ") {
+		variations = append(variations, "The "+firstWord)
+	}
+	
+	// Adiciona apenas o primeiro termo (sem ano)
+	if firstWord != query {
+		variations = append(variations, firstWord)
+	}
+	
+	fmt.Printf("[TorrentDosFilmes] Tentando variações de busca: %v\n", variations)
+	
+	var allLinks []string
+	
+	for _, variation := range variations {
+		fmt.Printf("[TorrentDosFilmes] Buscando por: %s\n", variation)
+		
+		encodedQuery := url.QueryEscape(variation)
+		searchURL := baseURL + searchURL + encodedQuery
+		
+		fmt.Printf("[TorrentDosFilmes] URL de busca: %s\n", searchURL)
+		
+		// Faz a requisição
+		resp, err := i.requester.GetDocument(ctx, searchURL)
+		if err != nil {
+			fmt.Printf("[TorrentDosFilmes] Erro na busca por '%s': %v\n", variation, err)
+			continue
+		}
+		
+		doc, err := goquery.NewDocumentFromReader(resp)
+		resp.Close()
+		if err != nil {
+			fmt.Printf("[TorrentDosFilmes] Erro ao parsear HTML para '%s': %v\n", variation, err)
+			continue
+		}
+		
+		// Extrai os links desta variação - seletor específico do TorrentDosFilmes
+		var variationLinks []string
+		doc.Find(".post").Each(func(j int, s *goquery.Selection) {
+			link, exists := s.Find("div.title > a").Attr("href")
+			if exists && link != "" {
+				variationLinks = append(variationLinks, link)
+			}
+		})
+		
+		fmt.Printf("[TorrentDosFilmes] Encontrados %d resultados para '%s'\n", len(variationLinks), variation)
+		allLinks = append(allLinks, variationLinks...)
+		
+		// Se encontrou resultados na primeira variação, pode parar (opcional)
+		// if len(variationLinks) > 0 {
+		//     break
+		// }
+	}
+	
+	// Remove duplicatas
+	uniqueLinks := removeDuplicatesTDF(allLinks)
+	fmt.Printf("[TorrentDosFilmes] Total único de links encontrados: %d\n", len(uniqueLinks))
+	
+	return uniqueLinks, nil
+}
+
+// Função para remover duplicatas - TorrentDosFilmes
+func removeDuplicatesTDF(links []string) []string {
+	keys := make(map[string]bool)
+	var result []string
+	
+	for _, link := range links {
+		if !keys[link] && link != "" {
+			keys[link] = true
+			result = append(result, link)
+		}
+	}
+	return result
+}
+
 func (i *Indexer) HandlerTorrentDosFilmesIndexer(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 	metadata := torrent_dos_filmes
@@ -38,45 +177,66 @@ func (i *Indexer) HandlerTorrentDosFilmesIndexer(w http.ResponseWriter, r *http.
 	q := r.URL.Query().Get("q")
 	page := r.URL.Query().Get("page")
 
-	// URL encode query param
-	q = url.QueryEscape(q)
-	url := metadata.URL
-	if q != "" {
-		url = fmt.Sprintf("%s%s%s", url, metadata.SearchURL, q)
-	} else if page != "" {
-		url = fmt.Sprintf(fmt.Sprintf("%s%s", url, metadata.PagePattern), page)
-	}
-
-	fmt.Println("URL:>", url)
-	resp, err := i.requester.GetDocument(ctx, url)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		err = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
-		if err != nil {
-			fmt.Println(err)
-		}
-		i.metrics.IndexerErrors.WithLabelValues(metadata.Label).Inc()
-		return
-	}
-	defer resp.Close()
-
-	doc, err := goquery.NewDocumentFromReader(resp)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		err = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
-		if err != nil {
-			fmt.Println(err)
-		}
-
-		i.metrics.IndexerErrors.WithLabelValues(metadata.Label).Inc()
-		return
-	}
-
 	var links []string
-	doc.Find(".post").Each(func(i int, s *goquery.Selection) {
-		link, _ := s.Find("div.title > a").Attr("href")
-		links = append(links, link)
-	})
+	var err error
+
+	if q != "" {
+		// Usa a nova função de busca com variações
+		links, err = i.trySearchVariationsTDF(ctx, metadata.URL, metadata.SearchURL, q)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			err = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+			if err != nil {
+				fmt.Println(err)
+			}
+			i.metrics.IndexerErrors.WithLabelValues(metadata.Label).Inc()
+			return
+		}
+	} else {
+		// Para paginação ou busca sem termo, usa a lógica original
+		url := metadata.URL
+		if page != "" {
+			url = fmt.Sprintf(fmt.Sprintf("%s%s", url, metadata.PagePattern), page)
+		}
+
+		fmt.Println("[TorrentDosFilmes] URL de paginação:>", url)
+		resp, err := i.requester.GetDocument(ctx, url)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			err = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+			if err != nil {
+				fmt.Println(err)
+			}
+			i.metrics.IndexerErrors.WithLabelValues(metadata.Label).Inc()
+			return
+		}
+		defer resp.Close()
+
+		doc, err := goquery.NewDocumentFromReader(resp)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			err = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+			if err != nil {
+				fmt.Println(err)
+			}
+			i.metrics.IndexerErrors.WithLabelValues(metadata.Label).Inc()
+			return
+		}
+
+		doc.Find(".post").Each(func(i int, s *goquery.Selection) {
+			link, _ := s.Find("div.title > a").Attr("href")
+			if link != "" {
+				links = append(links, link)
+			}
+		})
+	}
+
+	// if no links were indexed, expire the document in cache
+	if len(links) == 0 {
+		if q != "" {
+			fmt.Printf("[TorrentDosFilmes] Nenhum resultado encontrado para: %s\n", q)
+		}
+	}
 
 	// extract each torrent link
 	indexedTorrents := utils.ParallelFlatMap(links, func(link string) ([]schema.IndexedTorrent, error) {
@@ -107,7 +267,7 @@ func getTorrentsTorrentDosFilmes(ctx context.Context, i *Indexer, link string) (
 	}
 
 	article := doc.Find("article")
-	title := strings.Replace(article.Find(".title > h1").Text(), " - Download", "", -1)
+	pageTitle := strings.Replace(article.Find(".title > h1").Text(), " - Download", "", -1)
 	textContent := article.Find("div.content")
 	date := getPublishedDateFromMeta(doc)
 	magnets := textContent.Find("a[href^=\"magnet\"]")
@@ -116,6 +276,53 @@ func getTorrentsTorrentDosFilmes(ctx context.Context, i *Indexer, link string) (
 		magnetLink, _ := s.Attr("href")
 		magnetLinks = append(magnetLinks, magnetLink)
 	})
+
+	// Procura pelo título original no HTML
+	var originalTitle string
+	article.Find("div.content").Each(func(i int, s *goquery.Selection) {
+		// Busca no HTML bruto por padrões como "Titulo Original:" ou "Título Original:"
+		htmlContent, _ := s.Html()
+		
+		// Regex para capturar título original (com ou sem acento)
+		titleRegex := regexp.MustCompile(`(?i)t[íi]tulo\s+original:\s*</b>\s*([^<\n\r]+)`)
+		if matches := titleRegex.FindStringSubmatch(htmlContent); len(matches) > 1 {
+			originalTitle = strings.TrimSpace(matches[1])
+			fmt.Printf("[TorrentDosFilmes] Título Original encontrado: '%s'\n", originalTitle)
+		}
+		
+		// Fallback: busca no texto simples
+		if originalTitle == "" {
+			text := s.Text()
+			if strings.Contains(text, "Título Original:") {
+				parts := strings.Split(text, "Título Original:")
+				if len(parts) > 1 {
+					// Pega tudo até a próxima quebra de linha ou tag
+					titlePart := strings.TrimSpace(parts[1])
+					lines := strings.Split(titlePart, "\n")
+					if len(lines) > 0 {
+						originalTitle = strings.TrimSpace(lines[0])
+						fmt.Printf("[TorrentDosFilmes] Título Original (fallback) encontrado: '%s'\n", originalTitle)
+					}
+				}
+			} else if strings.Contains(text, "Titulo Original:") {
+				// Versão sem acento
+				parts := strings.Split(text, "Titulo Original:")
+				if len(parts) > 1 {
+					titlePart := strings.TrimSpace(parts[1])
+					lines := strings.Split(titlePart, "\n")
+					if len(lines) > 0 {
+						originalTitle = strings.TrimSpace(lines[0])
+						fmt.Printf("[TorrentDosFilmes] Titulo Original (sem acento) encontrado: '%s'\n", originalTitle)
+					}
+				}
+			}
+		}
+	})
+
+	// Se não encontrou o título original, usa o título da página
+	if originalTitle == "" {
+		originalTitle = pageTitle
+	}
 
 	var audio []schema.Audio
 	var year string
@@ -140,7 +347,7 @@ func getTorrentsTorrentDosFilmes(ctx context.Context, i *Indexer, link string) (
 		text := s.Text()
 
 		audio = append(audio, findAudioFromText(text)...)
-		y := findYearFromText(text, title)
+		y := findYearFromText(text, pageTitle)
 		if y != "" {
 			year = y
 		}
@@ -169,17 +376,34 @@ func getTorrentsTorrentDosFilmes(ctx context.Context, i *Indexer, link string) (
 			if err != nil {
 				fmt.Println(err)
 			}
-			releaseTitle := magnet.DisplayName
+
+			originalReleaseTitle := strings.TrimSpace(magnet.DisplayName)
+			originalReleaseTitle, err = url.QueryUnescape(originalReleaseTitle)
+			if err != nil {
+				originalReleaseTitle = strings.TrimSpace(magnet.DisplayName)
+			}
+
+			// Cria o título padronizado usando a nova função
+			standardizedTitle := createStandardizedTitleTDF(originalTitle, year, originalReleaseTitle)
+
 			infoHash := magnet.InfoHash.String()
 			trackers := magnet.Trackers
-			magnetAudio := getAudioFromTitle(releaseTitle, audio)
+			for i, tracker := range trackers {
+				unescapedTracker, err := url.QueryUnescape(tracker)
+				if err != nil {
+					fmt.Println(err)
+				}
+				trackers[i] = strings.TrimSpace(unescapedTracker)
+			}
+
+			magnetAudio := getAudioFromTitle(originalReleaseTitle, audio)
 
 			peer, seed, err := goscrape.GetLeechsAndSeeds(ctx, i.redis, i.metrics, infoHash, trackers)
 			if err != nil {
 				fmt.Println(err)
 			}
 
-			title := processTitle(title, magnetAudio)
+			processedTitle := processTitle(pageTitle, magnetAudio)
 
 			// if the number of sizes is equal to the number of magnets, then assign the size to each indexed torrent in order
 			var mySize string
@@ -193,8 +417,8 @@ func getTorrentsTorrentDosFilmes(ctx context.Context, i *Indexer, link string) (
 			}
 
 			ixt := schema.IndexedTorrent{
-				Title:         releaseTitle,
-				OriginalTitle: title,
+				Title:         standardizedTitle, // Usa o título padronizado
+				OriginalTitle: processedTitle,
 				Details:       link,
 				Year:          year,
 				IMDB:          imdbLink,
