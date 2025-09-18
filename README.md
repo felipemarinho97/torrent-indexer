@@ -131,7 +131,7 @@ language: pt-BR
 type: public
 encoding: UTF-8
 links:
-  - http://0.0.0.0:8080/
+  - http://localhost:8080/
 
 caps:
   categorymappings:
