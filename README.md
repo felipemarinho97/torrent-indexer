@@ -220,13 +220,11 @@ search:
     date:
       selector: date
       filters:
-        # Corrige data inválida que vem da API
         - name: re_replace
           args: ["^(0001-01-01.*|null|)$", "now"]
         - name: dateparse
           args: "2006-01-02T15:04:05Z"
 
-    # Tamanho - usa exatamente o que vem da API ou 1 GB se for vazio/0 B
     size:
       selector: size
       optional: true
@@ -237,14 +235,12 @@ search:
     seeders:
       selector: seed_count
       filters:
-        # Garante valores válidos para seeders
         - name: re_replace
           args: ["^(|null|0)$", "1"]
 
     leechers:
       selector: leech_count
       filters:
-        # Garante valores válidos para leechers - se for 0 vira 1
         - name: re_replace
           args: ["^(|null|0)$", "1"]
 
@@ -263,7 +259,6 @@ search:
       selector: year
       optional: true
 
-    # Detecção robusta de categoria
     category_is_tv_show:
       text: "{{ .Result.title }} {{ .Result.original_title }}"
       filters:
@@ -273,7 +268,6 @@ search:
     category:
       text: "{{ if .Result.category_is_tv_show }}5000{{ else }}2000{{ end }}"
 
-    # Detecção de qualidade
     quality:
       text: "{{ .Result.title }}"
       filters:
@@ -283,7 +277,6 @@ search:
         - name: re_replace
           args: ["^$", "WEB-DL"]
 
-    # Detecção de codec
     codec:
       text: "{{ .Result.title }}"
       optional: true
@@ -292,7 +285,6 @@ search:
           args: "(?i)(x265|HEVC|H\\.?265|x264|H\\.?264|AVC|XviD|DivX)"
         - name: toupper
 
-    # Detecção de idioma/áudio
     language:
       text: "{{ .Result.title }} {{ .Result.original_title }}"
       filters:
@@ -307,7 +299,6 @@ search:
         - name: re_replace
           args: ["^$", "PT-BR"]
 
-    # Similaridade da API para debugging
     similarity:
       selector: similarity
       optional: true
