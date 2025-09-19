@@ -37,7 +37,6 @@ var starck_filmes = IndexerMeta{
 	PagePattern: "page/%s",
 }
 
-// Função para remover duplicatas
 func removeDuplicates(links []string) []string {
 	keys := make(map[string]bool)
 	var result []string
@@ -51,55 +50,41 @@ func removeDuplicates(links []string) []string {
 	return result
 }
 
-// Função para fazer busca com variações do termo
 func (i *Indexer) trySearchVariations(ctx context.Context, baseURL, searchURL, query string) ([]string, error) {
 	if query == "" {
 		return nil, nil
 	}
 	
-	// Cria variações do termo de busca
 	variations := []string{
-		query, // "Amateur 2025"
+		query,
 	}
 	
-	// Adiciona variação com "The" se não começar com "The"
 	firstWord := strings.Split(query, " ")[0]
 	if !strings.HasPrefix(strings.ToLower(query), "the ") {
 		variations = append(variations, "The "+firstWord)
 	}
 	
-	// Adiciona apenas o primeiro termo (sem ano)
 	if firstWord != query {
 		variations = append(variations, firstWord)
 	}
 	
-	fmt.Printf("Tentando variações de busca: %v\n", variations)
-	
 	var allLinks []string
 	
 	for _, variation := range variations {
-		fmt.Printf("Buscando por: %s\n", variation)
-		
 		encodedQuery := url.QueryEscape(variation)
 		searchURL := baseURL + searchURL + encodedQuery
 		
-		fmt.Printf("URL de busca: %s\n", searchURL)
-		
-		// Faz a requisição
 		resp, err := i.requester.GetDocument(ctx, searchURL)
 		if err != nil {
-			fmt.Printf("Erro na busca por '%s': %v\n", variation, err)
 			continue
 		}
 		
 		doc, err := goquery.NewDocumentFromReader(resp)
 		resp.Close()
 		if err != nil {
-			fmt.Printf("Erro ao parsear HTML para '%s': %v\n", variation, err)
 			continue
 		}
 		
-		// Extrai os links desta variação
 		var variationLinks []string
 		doc.Find(".item").Each(func(j int, s *goquery.Selection) {
 			link, exists := s.Find("div.sub-item > a").Attr("href")
@@ -108,46 +93,28 @@ func (i *Indexer) trySearchVariations(ctx context.Context, baseURL, searchURL, q
 			}
 		})
 		
-		fmt.Printf("Encontrados %d resultados para '%s'\n", len(variationLinks), variation)
 		allLinks = append(allLinks, variationLinks...)
-		
-		// Se encontrou resultados na primeira variação, pode parar (opcional)
-		// if len(variationLinks) > 0 {
-		//     break
-		// }
 	}
 	
-	// Remove duplicatas
 	uniqueLinks := removeDuplicates(allLinks)
-	fmt.Printf("Total único de links encontrados: %d\n", len(uniqueLinks))
-	
 	return uniqueLinks, nil
 }
 
-// Função para criar título padronizado substituindo apenas o início
 func createStandardizedTitle(originalTitle, year, releaseTitle string) string {
-	// Se não tiver originalTitle, retorna o magnet original
 	if originalTitle == "" {
 		return releaseTitle
 	}
 	
-	// Limpa o título original (remove caracteres especiais, substitui espaços por pontos)
 	cleanOriginalTitle := strings.ReplaceAll(originalTitle, " ", ".")
 	cleanOriginalTitle = regexp.MustCompile(`[^\w\.\-]`).ReplaceAllString(cleanOriginalTitle, "")
 	
-	// Regex para encontrar ano (4 dígitos)
 	yearRegex := regexp.MustCompile(`(19|20)\d{2}`)
-	
-	// Regex para encontrar temporada (SxxExx ou SxxE padrão)
 	seasonRegex := regexp.MustCompile(`(?i)s\d{1,2}e?\d{0,2}`)
 	
-	// Procura por ano primeiro
 	if yearMatch := yearRegex.FindStringIndex(releaseTitle); yearMatch != nil {
-		// Encontrou ano - substitui tudo antes do ano
 		beforeYear := releaseTitle[:yearMatch[0]]
 		fromYear := releaseTitle[yearMatch[0]:]
 		
-		// Remove pontos/espaços extras no final do início
 		beforeYear = strings.TrimRight(beforeYear, ". ")
 		if beforeYear != "" {
 			return cleanOriginalTitle + "." + fromYear
@@ -156,13 +123,10 @@ func createStandardizedTitle(originalTitle, year, releaseTitle string) string {
 		}
 	}
 	
-	// Se não encontrou ano, procura por temporada
 	if seasonMatch := seasonRegex.FindStringIndex(releaseTitle); seasonMatch != nil {
-		// Encontrou temporada - substitui tudo antes da temporada
 		beforeSeason := releaseTitle[:seasonMatch[0]]
 		fromSeason := releaseTitle[seasonMatch[0]:]
 		
-		// Remove pontos/espaços extras no final do início
 		beforeSeason = strings.TrimRight(beforeSeason, ". ")
 		if beforeSeason != "" {
 			return cleanOriginalTitle + "." + fromSeason
@@ -171,7 +135,6 @@ func createStandardizedTitle(originalTitle, year, releaseTitle string) string {
 		}
 	}
 	
-	// Se não encontrou nem ano nem temporada, retorna o magnet original
 	return releaseTitle
 }
 
@@ -192,7 +155,6 @@ func (i *Indexer) HandlerStarckFilmesIndexer(w http.ResponseWriter, r *http.Requ
 	var err error
 
 	if q != "" {
-		// Usa a nova função de busca com variações
 		links, err = i.trySearchVariations(ctx, metadata.URL, metadata.SearchURL, q)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
@@ -201,7 +163,6 @@ func (i *Indexer) HandlerStarckFilmesIndexer(w http.ResponseWriter, r *http.Requ
 			return
 		}
 	} else {
-		// Para paginação ou busca sem termo, usa a lógica original
 		urlStr := metadata.URL
 		if page != "" {
 			urlStr = fmt.Sprintf(fmt.Sprintf("%s%s", urlStr, metadata.PagePattern), page)
@@ -209,7 +170,6 @@ func (i *Indexer) HandlerStarckFilmesIndexer(w http.ResponseWriter, r *http.Requ
 			urlStr = fmt.Sprintf(fmt.Sprintf("%s%s", urlStr, metadata.PagePattern), "1")
 		}
 
-		fmt.Println("URL de paginação:>", urlStr)
 		resp, err := i.requester.GetDocument(ctx, urlStr)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
@@ -279,7 +239,6 @@ func getTorrentStarckFilmes(ctx context.Context, i *Indexer, link string) ([]sch
 		})
 	})
 
-	// Se não encontrou o título original, usa o título da página
 	if originalTitle == "" {
 		originalTitle = pageTitle
 	}
@@ -317,6 +276,9 @@ func getTorrentStarckFilmes(ctx context.Context, i *Indexer, link string) ([]sch
 	for it, magnetLink := range magnetLinks {
 		it := it
 		go func(it int, magnetLink string) {
+			magnetLink = strings.ReplaceAll(magnetLink, "&#038;", "&")
+			magnetLink = strings.ReplaceAll(magnetLink, "&amp;", "&")
+			
 			magnet, err := magnet.ParseMagnetUri(magnetLink)
 			if err != nil {
 				fmt.Println(err)
@@ -328,13 +290,15 @@ func getTorrentStarckFilmes(ctx context.Context, i *Indexer, link string) ([]sch
 				originalReleaseTitle = strings.TrimSpace(magnet.DisplayName)
 			}
 
-			// Cria o título padronizado usando a nova função
 			standardizedTitle := createStandardizedTitle(originalTitle, year, originalReleaseTitle)
 
 			infoHash := magnet.InfoHash.String()
 			trackers := magnet.Trackers
 			for i, tracker := range trackers {
-				unescapedTracker, err := url.QueryUnescape(tracker)
+				unescapedTracker := strings.ReplaceAll(tracker, "&#038;", "&")
+				unescapedTracker = strings.ReplaceAll(unescapedTracker, "&amp;", "&")
+				
+				unescapedTracker, err := url.QueryUnescape(unescapedTracker)
 				if err != nil {
 					fmt.Println(err)
 				}
@@ -359,7 +323,7 @@ func getTorrentStarckFilmes(ctx context.Context, i *Indexer, link string) ([]sch
 			}
 
 			ixt := schema.IndexedTorrent{
-				Title:         standardizedTitle, // Usa o título padronizado
+				Title:         standardizedTitle,
 				OriginalTitle: pageTitle,
 				Details:       link,
 				Year:          year,
