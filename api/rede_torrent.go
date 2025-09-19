@@ -25,6 +25,107 @@ var rede_torrent = IndexerMeta{
 	PagePattern: "%s",
 }
 
+func createStandardizedTitleRT(originalTitle, year, releaseTitle string) string {
+	if originalTitle == "" {
+		return releaseTitle
+	}
+	
+	cleanOriginalTitle := strings.ReplaceAll(originalTitle, " ", ".")
+	cleanOriginalTitle = regexp.MustCompile(`[^\w\.\-]`).ReplaceAllString(cleanOriginalTitle, "")
+	
+	yearRegex := regexp.MustCompile(`(19|20)\d{2}`)
+	seasonRegex := regexp.MustCompile(`(?i)s\d{1,2}e?\d{0,2}`)
+	
+	if yearMatch := yearRegex.FindStringIndex(releaseTitle); yearMatch != nil {
+		beforeYear := releaseTitle[:yearMatch[0]]
+		fromYear := releaseTitle[yearMatch[0]:]
+		
+		beforeYear = strings.TrimRight(beforeYear, ". ")
+		if beforeYear != "" {
+			return cleanOriginalTitle + "." + fromYear
+		} else {
+			return cleanOriginalTitle + "." + fromYear
+		}
+	}
+	
+	if seasonMatch := seasonRegex.FindStringIndex(releaseTitle); seasonMatch != nil {
+		beforeSeason := releaseTitle[:seasonMatch[0]]
+		fromSeason := releaseTitle[seasonMatch[0]:]
+		
+		beforeSeason = strings.TrimRight(beforeSeason, ". ")
+		if beforeSeason != "" {
+			return cleanOriginalTitle + "." + fromSeason
+		} else {
+			return cleanOriginalTitle + "." + fromSeason
+		}
+	}
+	
+	return releaseTitle
+}
+
+func (i *Indexer) trySearchVariationsRT(ctx context.Context, baseURL, searchURL, query string) ([]string, error) {
+	if query == "" {
+		return nil, nil
+	}
+	
+	variations := []string{
+		query,
+	}
+	
+	firstWord := strings.Split(query, " ")[0]
+	if !strings.HasPrefix(strings.ToLower(query), "the ") {
+		variations = append(variations, "The "+firstWord)
+	}
+	
+	if firstWord != query {
+		variations = append(variations, firstWord)
+	}
+	
+	var allLinks []string
+	
+	for _, variation := range variations {
+		encodedQuery := url.QueryEscape(variation)
+		searchURL := baseURL + searchURL + encodedQuery
+		
+		resp, err := i.requester.GetDocument(ctx, searchURL)
+		if err != nil {
+			continue
+		}
+		
+		doc, err := goquery.NewDocumentFromReader(resp)
+		resp.Close()
+		if err != nil {
+			continue
+		}
+		
+		var variationLinks []string
+		doc.Find(".capa_lista").Each(func(j int, s *goquery.Selection) {
+			link, exists := s.Find("a").Attr("href")
+			if exists && link != "" {
+				variationLinks = append(variationLinks, link)
+			}
+		})
+		
+		allLinks = append(allLinks, variationLinks...)
+	}
+	
+	uniqueLinks := removeDuplicatesRT(allLinks)
+	return uniqueLinks, nil
+}
+
+func removeDuplicatesRT(links []string) []string {
+	keys := make(map[string]bool)
+	var result []string
+	
+	for _, link := range links {
+		if !keys[link] && link != "" {
+			keys[link] = true
+			result = append(result, link)
+		}
+	}
+	return result
+}
+
 func (i *Indexer) HandlerRedeTorrentIndexer(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 	metadata := rede_torrent
@@ -35,56 +136,64 @@ func (i *Indexer) HandlerRedeTorrentIndexer(w http.ResponseWriter, r *http.Reque
 	}()
 
 	ctx := r.Context()
-	// supported query params: q, season, episode, page, filter_results
 	q := r.URL.Query().Get("q")
 	page := r.URL.Query().Get("page")
 
-	// URL encode query param
-	q = url.QueryEscape(q)
-	url := metadata.URL
-	if q != "" {
-		url = fmt.Sprintf("%s%s%s", url, metadata.SearchURL, q)
-	} else if page != "" {
-		url = fmt.Sprintf(fmt.Sprintf("%s%s", url, metadata.PagePattern), page)
-	}
-
-	fmt.Println("URL:>", url)
-	resp, err := i.requester.GetDocument(ctx, url)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		err = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
-		if err != nil {
-			fmt.Println(err)
-		}
-		i.metrics.IndexerErrors.WithLabelValues(metadata.Label).Inc()
-		return
-	}
-	defer resp.Close()
-
-	doc, err := goquery.NewDocumentFromReader(resp)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		err = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
-		if err != nil {
-			fmt.Println(err)
-		}
-
-		i.metrics.IndexerErrors.WithLabelValues(metadata.Label).Inc()
-		return
-	}
-
 	var links []string
-	doc.Find(".capa_lista").Each(func(i int, s *goquery.Selection) {
-		link, _ := s.Find("a").Attr("href")
-		links = append(links, link)
-	})
+	var err error
 
-	// extract each torrent link
+	if q != "" {
+		links, err = i.trySearchVariationsRT(ctx, metadata.URL, metadata.SearchURL, q)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			err = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+			if err != nil {
+				fmt.Println(err)
+			}
+			i.metrics.IndexerErrors.WithLabelValues(metadata.Label).Inc()
+			return
+		}
+	} else {
+		url := metadata.URL
+		if page != "" {
+			url = fmt.Sprintf(fmt.Sprintf("%s%s", url, metadata.PagePattern), page)
+		}
+
+		resp, err := i.requester.GetDocument(ctx, url)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			err = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+			if err != nil {
+				fmt.Println(err)
+			}
+			i.metrics.IndexerErrors.WithLabelValues(metadata.Label).Inc()
+			return
+		}
+		defer resp.Close()
+
+		doc, err := goquery.NewDocumentFromReader(resp)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			err = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+			if err != nil {
+				fmt.Println(err)
+			}
+			i.metrics.IndexerErrors.WithLabelValues(metadata.Label).Inc()
+			return
+		}
+
+		doc.Find(".capa_lista").Each(func(i int, s *goquery.Selection) {
+			link, _ := s.Find("a").Attr("href")
+			if link != "" {
+				links = append(links, link)
+			}
+		})
+	}
+
 	indexedTorrents := utils.ParallelFlatMap(links, func(link string) ([]schema.IndexedTorrent, error) {
 		return getTorrentsRedeTorrent(ctx, i, link)
 	})
 
-	// Apply post-processors
 	postProcessedTorrents := indexedTorrents
 	for _, processor := range i.postProcessors {
 		postProcessedTorrents = processor(i, r, postProcessedTorrents)
@@ -108,7 +217,6 @@ func getTorrentsRedeTorrent(ctx context.Context, i *Indexer, link string) ([]sch
 	}
 
 	article := doc.Find(".conteudo")
-	// title pattern: "Something - optional balbla (dddd) some shit" - extract "Something" and "dddd"
 	titleRe := regexp.MustCompile(`^(.*?)(?: - (.*?))? \((\d{4})\)`)
 	titleP := titleRe.FindStringSubmatch(article.Find("h1").Text())
 	if len(titleP) < 3 {
@@ -116,6 +224,38 @@ func getTorrentsRedeTorrent(ctx context.Context, i *Indexer, link string) ([]sch
 	}
 	title := strings.TrimSpace(titleP[1])
 	year := strings.TrimSpace(titleP[3])
+
+	var originalTitle string
+	article.Find("div#informacoes > p").Each(func(i int, s *goquery.Selection) {
+		htmlContent, err := s.Html()
+		if err != nil {
+			return
+		}
+
+		htmlContent = strings.ReplaceAll(htmlContent, "\n", "")
+		htmlContent = strings.ReplaceAll(htmlContent, "\t", "")
+
+		brRe := regexp.MustCompile(`<br\s*\/?>`)
+		htmlContent = brRe.ReplaceAllString(htmlContent, "<br>")
+		lines := strings.Split(htmlContent, "<br>")
+
+		for _, line := range lines {
+			re := regexp.MustCompile(`<[^>]*>`)
+			line = re.ReplaceAllString(line, "")
+			line = strings.TrimSpace(line)
+			
+			if strings.Contains(line, "Título Original:") {
+				parts := strings.Split(line, "Título Original:")
+				if len(parts) > 1 {
+					originalTitle = strings.TrimSpace(parts[1])
+				}
+			}
+		}
+	})
+
+	if originalTitle == "" {
+		originalTitle = title
+	}
 
 	textContent := article.Find(".apenas_itemprop")
 	date := getPublishedDateFromMeta(doc)
@@ -129,39 +269,21 @@ func getTorrentsRedeTorrent(ctx context.Context, i *Indexer, link string) ([]sch
 	var audio []schema.Audio
 	var size []string
 	article.Find("div#informacoes > p").Each(func(i int, s *goquery.Selection) {
-		// pattern:
-		// Filme Bicho de Sete Cabeças Torrent
-		// Título Original: Bicho de Sete Cabeças
-		// Lançamento: 2001
-		// Gêneros: Drama / Nacional
-		// Idioma: Português
-		// Qualidade: 720p / BluRay
-		// Duração: 1h 14 Minutos
-		// Formato: Mp4
-		// Vídeo: 10 e Áudio: 10
-		// Legendas: Português
-		// Nota do Imdb: 7.7
-		// Tamanho: 1.26 GB
-
-		// we need to manualy parse because the text is not well formatted
 		htmlContent, err := s.Html()
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
 
-		// remove any \n and \t characters
 		htmlContent = strings.ReplaceAll(htmlContent, "\n", "")
 		htmlContent = strings.ReplaceAll(htmlContent, "\t", "")
 
-		// split by <br> tags and render each line
 		brRe := regexp.MustCompile(`<br\s*\/?>`)
 		htmlContent = brRe.ReplaceAllString(htmlContent, "<br>")
 		lines := strings.Split(htmlContent, "<br>")
 
 		var text strings.Builder
 		for _, line := range lines {
-			// remove any HTML tags
 			re := regexp.MustCompile(`<[^>]*>`)
 			line = re.ReplaceAllString(line, "")
 
@@ -177,7 +299,6 @@ func getTorrentsRedeTorrent(ctx context.Context, i *Indexer, link string) ([]sch
 		size = append(size, findSizesFromText(text.String())...)
 	})
 
-	// find any link from imdb
 	imdbLink := ""
 	article.Find("a").Each(func(i int, s *goquery.Selection) {
 		link, _ := s.Attr("href")
@@ -191,27 +312,47 @@ func getTorrentsRedeTorrent(ctx context.Context, i *Indexer, link string) ([]sch
 
 	var chanIndexedTorrent = make(chan schema.IndexedTorrent)
 
-	// for each magnet link, create a new indexed torrent
 	for it, magnetLink := range magnetLinks {
 		it := it
 		go func(it int, magnetLink string) {
+			magnetLink = strings.ReplaceAll(magnetLink, "&#038;", "&")
+			magnetLink = strings.ReplaceAll(magnetLink, "&amp;", "&")
+			
 			magnet, err := magnet.ParseMagnetUri(magnetLink)
 			if err != nil {
 				fmt.Println(err)
 			}
-			releaseTitle := magnet.DisplayName
+
+			originalReleaseTitle := strings.TrimSpace(magnet.DisplayName)
+			originalReleaseTitle, err = url.QueryUnescape(originalReleaseTitle)
+			if err != nil {
+				originalReleaseTitle = strings.TrimSpace(magnet.DisplayName)
+			}
+
+			standardizedTitle := createStandardizedTitleRT(originalTitle, year, originalReleaseTitle)
+
 			infoHash := magnet.InfoHash.String()
 			trackers := magnet.Trackers
-			magnetAudio := getAudioFromTitle(releaseTitle, audio)
+			for i, tracker := range trackers {
+				unescapedTracker := strings.ReplaceAll(tracker, "&#038;", "&")
+				unescapedTracker = strings.ReplaceAll(unescapedTracker, "&amp;", "&")
+				
+				unescapedTracker, err := url.QueryUnescape(unescapedTracker)
+				if err != nil {
+					fmt.Println(err)
+				}
+				trackers[i] = strings.TrimSpace(unescapedTracker)
+			}
+
+			magnetAudio := getAudioFromTitle(originalReleaseTitle, audio)
 
 			peer, seed, err := goscrape.GetLeechsAndSeeds(ctx, i.redis, i.metrics, infoHash, trackers)
 			if err != nil {
 				fmt.Println(err)
 			}
 
-			title := processTitle(title, magnetAudio)
+			processedTitle := processTitle(title, magnetAudio)
 
-			// if the number of sizes is equal to the number of magnets, then assign the size to each indexed torrent in order
 			var mySize string
 			if len(size) == len(magnetLinks) {
 				mySize = size[it]
@@ -223,8 +364,8 @@ func getTorrentsRedeTorrent(ctx context.Context, i *Indexer, link string) ([]sch
 			}
 
 			ixt := schema.IndexedTorrent{
-				Title:         releaseTitle,
-				OriginalTitle: title,
+				Title:         standardizedTitle,
+				OriginalTitle: processedTitle,
 				Details:       link,
 				Year:          year,
 				IMDB:          imdbLink,
