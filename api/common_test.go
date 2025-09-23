@@ -264,3 +264,42 @@ func Test_getAudioFromTitle(t *testing.T) {
 		})
 	}
 }
+
+func Test_appendAudioISO639_2Code(t *testing.T) {
+	tests := []struct {
+		name  string
+		title string
+		a     []schema.Audio
+		want  string
+	}{
+		{
+			name:  "should append audio in title",
+			title: "Movie Title",
+			a: []schema.Audio{
+				schema.AudioPortuguese,
+				schema.AudioEnglish,
+			},
+			want: "Movie Title (brazilian, eng)",
+		},
+		{
+			name:  "should append audio in title and deduplicate",
+			title: "Movie Title",
+			a: []schema.Audio{
+				schema.AudioPortuguese,
+				schema.AudioPortuguese2,
+				schema.AudioEnglish,
+				schema.AudioEnglish2,
+			},
+			want: "Movie Title (brazilian, eng)",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := appendAudioISO639_2Code(tt.title, tt.a)
+
+			if got != tt.want {
+				t.Errorf("appendAudioISO639_2Code() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

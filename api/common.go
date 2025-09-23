@@ -187,6 +187,7 @@ func appendAudioISO639_2Code(title string, a []schema.Audio) string {
 		for _, lang := range a {
 			audio = append(audio, lang.String())
 		}
+		audio = slices.Compact(audio)
 		title = fmt.Sprintf("%s (%s)", title, strings.Join(audio, ", "))
 	}
 	return title
