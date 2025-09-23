@@ -120,7 +120,11 @@ func (f *FlareSolverr) CreateSession() string {
 		return ""
 	}
 
-	session := sessionResponse["session"].(string)
+	session, ok := sessionResponse["session"].(string)
+	if !ok {
+		logging.Error().Msg("Failed to create FlareSolverr session")
+		return ""
+	}
 	// Add session to the pool
 	f.sessionPool <- session
 

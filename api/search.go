@@ -45,8 +45,7 @@ func (h *MeilisearchHandler) SearchTorrentHandler(w http.ResponseWriter, r *http
 
 	query := r.URL.Query().Get("q")
 	if query == "" {
-		http.Error(w, "Query parameter 'q' is required", http.StatusBadRequest)
-		return
+		query = time.Now().Format("2006-01-02") // needed for prowlar/jackett empty queries
 	}
 
 	limitStr := r.URL.Query().Get("limit")

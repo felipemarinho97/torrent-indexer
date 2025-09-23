@@ -239,3 +239,28 @@ func Test_getIMDBLink(t *testing.T) {
 		})
 	}
 }
+
+func Test_getAudioFromTitle(t *testing.T) {
+	tests := []struct {
+		name             string
+		releaseTitle     string
+		audioFromContent []schema.Audio
+		want             []schema.Audio
+	}{
+		{
+			name:             "should return portuguese audio when title contains dual",
+			releaseTitle:     "A Bailarina (2017) Dual Áudio BluRay 720p | 1080p – Torrent Download",
+			audioFromContent: []schema.Audio{schema.AudioFrench},
+			want:             []schema.Audio{schema.AudioPortuguese, schema.AudioFrench},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := getAudioFromTitle(tt.releaseTitle, tt.audioFromContent)
+
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("getAudioFromTitle() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
