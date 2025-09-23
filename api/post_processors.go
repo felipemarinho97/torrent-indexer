@@ -22,6 +22,10 @@ func CleanupTitleWebsites(_ *Indexer, _ *http.Request, torrents []schema.Indexed
 
 func AppendAudioTags(_ *Indexer, _ *http.Request, torrents []schema.IndexedTorrent) []schema.IndexedTorrent {
 	for i, it := range torrents {
+		// skip if title is empty
+		if it.Title == "" {
+			continue
+		}
 		// reprocess audio tags in case any middleware has changed the title
 		torrents[i].Audio = getAudioFromTitle(it.Title, it.Audio)
 		torrents[i].Title = appendAudioISO639_2Code(torrents[i].Title, torrents[i].Audio)
@@ -78,15 +82,24 @@ func FullfilMissingMetadata(i *Indexer, r *http.Request, torrents []schema.Index
 }
 
 func FallbackPostTitle(i *Indexer, r *http.Request, torrents []schema.IndexedTorrent) []schema.IndexedTorrent {
-	if !i.config.FallbackTitleEnabled {
-		return torrents
-	}
+	emptyTitles := 0
 
-	for i := range torrents {
-		if torrents[i].Title == "" {
-			torrents[i].Title = fmt.Sprintf("[UNSAFE] %s", torrents[i].OriginalTitle)
+	for idx := range torrents {
+		if torrents[idx].Title == "" {
+			if i.config.FallbackTitleEnabled {
+				torrents[idx].Title = fmt.Sprintf("[UNSAFE] %s", torrents[idx].OriginalTitle)
+			} else {
+				emptyTitles++
+			}
 		}
 	}
+
+	if emptyTitles > 0 && !i.magnetMetadataAPI.IsEnabled() {
+		logging.WarnWithRequest(r).
+			Int("empty_titles", emptyTitles).
+			Msg("Some torrents have empty titles. Consider setting up MAGNET_METADATA_API (recommended) or set FALLBACK_TITLE_ENABLED=true.")
+	}
+
 	return torrents
 }
 

@@ -14,7 +14,6 @@ import (
 func InitLogger() {
 	// Configure zerolog
 	zerolog.TimeFieldFormat = time.RFC3339
-	
 	// Set log level from environment or default to Info
 	level := zerolog.InfoLevel
 	if envLevel := os.Getenv("LOG_LEVEL"); envLevel != "" {
@@ -22,9 +21,9 @@ func InitLogger() {
 			level = parsedLevel
 		}
 	}
-	
+
 	zerolog.SetGlobalLevel(level)
-	
+
 	// Use console writer for development, JSON for production
 	if os.Getenv("LOG_FORMAT") != "json" {
 		log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339})
@@ -83,17 +82,25 @@ func DebugWithRequest(r *http.Request) *zerolog.Event {
 		Str("client_ip", clientIP)
 }
 
+// WarnWithRequest returns a warn logger event with request context (IP, method, URL)
+func WarnWithRequest(r *http.Request) *zerolog.Event {
+	clientIP := getClientIP(r)
+	return log.Warn().
+		Str("method", r.Method).
+		Str("url", r.URL.String()).
+		Str("client_ip", clientIP)
+}
+
 // WithContext returns a logger event with context values
 func WithContext(ctx context.Context) *zerolog.Event {
 	event := log.Info()
-	
+
 	// Add any context values if needed
 	if reqID := ctx.Value("request_id"); reqID != nil {
 		if id, ok := reqID.(string); ok {
 			event = event.Str("request_id", id)
 		}
 	}
-	
 	return event
 }
 
@@ -103,12 +110,10 @@ func getClientIP(r *http.Request) string {
 	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
 		return xff
 	}
-	
 	// Check X-Real-IP header
 	if xri := r.Header.Get("X-Real-IP"); xri != "" {
 		return xri
 	}
-	
 	// Fall back to RemoteAddr
 	return r.RemoteAddr
 }
