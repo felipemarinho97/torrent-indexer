@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/felipemarinho97/torrent-indexer/cache"
+	"github.com/felipemarinho97/torrent-indexer/logging"
 	"github.com/felipemarinho97/torrent-indexer/utils"
 )
 
@@ -41,7 +42,7 @@ func (i *Requster) GetDocument(ctx context.Context, url string) (io.ReadCloser, 
 	key := fmt.Sprintf("%s:%s", cacheKey, url)
 	bodyByte, err := i.c.Get(ctx, key)
 	if err == nil {
-		fmt.Printf("returning from short-lived cache: %s\n", url)
+		logging.Debug().Str("url", url).Msg("Returning from short-lived cache")
 		body = io.NopCloser(bytes.NewReader(bodyByte))
 		return body, nil
 	}
@@ -73,18 +74,18 @@ func (i *Requster) GetDocument(ctx context.Context, url string) (io.ReadCloser, 
 		if err != nil {
 			return nil, fmt.Errorf("failed to read response body: %w", err)
 		}
-		fmt.Printf("request served from flaresolverr: %s\n", url)
+		logging.Debug().Str("url", url).Msg("Request served from flaresolverr")
 	} else {
-		fmt.Printf("request served from plain client: %s\n", url)
+		logging.Debug().Str("url", url).Msg("Request served from plain client")
 	}
 
 	// save response to cache if it's not a challange, body is not empty and is valid HTML
 	if !hasChallange(bodyByte) && len(bodyByte) > 0 && utils.IsValidHTML(string(bodyByte)) {
 		err = i.c.SetWithExpiration(ctx, key, bodyByte, i.shortLivedCacheExpiration)
 		if err != nil {
-			fmt.Printf("failed to save response to cache: %v\n", err)
+			logging.Error().Err(err).Str("url", url).Msg("Failed to save response to cache")
 		}
-		fmt.Printf("saved to cache: %s\n", url)
+		logging.Debug().Str("url", url).Msg("Saved to cache")
 	} else {
 		return nil, fmt.Errorf("response is a challange")
 	}

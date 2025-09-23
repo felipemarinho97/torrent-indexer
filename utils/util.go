@@ -3,6 +3,8 @@ package utils
 import (
 	"fmt"
 	"regexp"
+
+	"github.com/felipemarinho97/torrent-indexer/logging"
 )
 
 // Filter filters a slice based on a predicate function.
@@ -42,7 +44,7 @@ func ParallelFlatMap[T any, R any](iterable []T, mapper func(item T) ([]R, error
 				handler(err)
 			}
 			if len(errHandler) == 0 {
-				fmt.Println(err)
+				logging.Error().Err(err).Msg("Error in ParallelFlatMap")
 			}
 		}
 	}

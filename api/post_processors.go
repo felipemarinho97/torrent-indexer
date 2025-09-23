@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/felipemarinho97/torrent-indexer/logging"
 	"github.com/felipemarinho97/torrent-indexer/schema"
 	"github.com/felipemarinho97/torrent-indexer/utils"
 	"github.com/hbollon/go-edlib"
@@ -59,7 +60,7 @@ func FullfilMissingMetadata(i *Indexer, r *http.Request, torrents []schema.Index
 		if m.Name != "" {
 			it.Title = m.Name
 		}
-		fmt.Printf("hash: %s get -> size: %s\n", m.InfoHash, it.Size)
+		logging.Debug().Str("info_hash", m.InfoHash).Str("size", it.Size).Msg("Retrieved metadata from cache")
 
 		// If files are present, add them to the indexed torrent
 		if len(m.Files) > 0 {

@@ -12,6 +12,7 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 
+	"github.com/felipemarinho97/torrent-indexer/logging"
 	"github.com/felipemarinho97/torrent-indexer/magnet"
 	"github.com/felipemarinho97/torrent-indexer/schema"
 	goscrape "github.com/felipemarinho97/torrent-indexer/scrape"
@@ -48,13 +49,13 @@ func (i *Indexer) HandlerRedeTorrentIndexer(w http.ResponseWriter, r *http.Reque
 		url = fmt.Sprintf(fmt.Sprintf("%s%s", url, metadata.PagePattern), page)
 	}
 
-	fmt.Println("URL:>", url)
+	logging.InfoWithRequest(r).Str("target_url", url).Msg("Processing indexer request")
 	resp, err := i.requester.GetDocument(ctx, url)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		err = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 		if err != nil {
-			fmt.Println(err)
+			logging.ErrorWithRequest(r).Err(err).Msg("Failed to encode error response")
 		}
 		i.metrics.IndexerErrors.WithLabelValues(metadata.Label).Inc()
 		return
@@ -66,7 +67,7 @@ func (i *Indexer) HandlerRedeTorrentIndexer(w http.ResponseWriter, r *http.Reque
 		w.WriteHeader(http.StatusInternalServerError)
 		err = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 		if err != nil {
-			fmt.Println(err)
+			logging.ErrorWithRequest(r).Err(err).Msg("Failed to encode error response")
 		}
 
 		i.metrics.IndexerErrors.WithLabelValues(metadata.Label).Inc()
@@ -101,7 +102,7 @@ func (i *Indexer) HandlerRedeTorrentIndexer(w http.ResponseWriter, r *http.Reque
 		Count:   len(postProcessedTorrents),
 	})
 	if err != nil {
-		fmt.Println(err)
+		logging.Error().Err(err).Msg("Failed to encode response")
 	}
 }
 
@@ -151,7 +152,9 @@ func getTorrentsRedeTorrent(ctx context.Context, i *Indexer, link string) ([]sch
 		// we need to manualy parse because the text is not well formatted
 		htmlContent, err := s.Html()
 		if err != nil {
-			fmt.Println(err)
+			logging.Error().
+				Str("url", link).
+				Err(err).Msg("Failed to get HTML content")
 			return
 		}
 
@@ -202,7 +205,7 @@ func getTorrentsRedeTorrent(ctx context.Context, i *Indexer, link string) ([]sch
 		go func(it int, magnetLink string) {
 			magnet, err := magnet.ParseMagnetUri(magnetLink)
 			if err != nil {
-				fmt.Println(err)
+				logging.Error().Err(err).Str("magnet_link", magnetLink).Msg("Failed to parse magnet URI")
 			}
 			releaseTitle := magnet.DisplayName
 			infoHash := magnet.InfoHash.String()
@@ -211,7 +214,7 @@ func getTorrentsRedeTorrent(ctx context.Context, i *Indexer, link string) ([]sch
 
 			peer, seed, err := goscrape.GetLeechsAndSeeds(ctx, i.redis, i.metrics, infoHash, trackers)
 			if err != nil {
-				fmt.Println(err)
+				logging.Error().Err(err).Str("info_hash", infoHash).Msg("Failed to get leechers and seeders")
 			}
 
 			title := processTitle(title, magnetAudio)

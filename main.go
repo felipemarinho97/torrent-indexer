@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"net/http"
 	"os"
 	"strconv"
@@ -9,6 +8,7 @@ import (
 
 	handler "github.com/felipemarinho97/torrent-indexer/api"
 	"github.com/felipemarinho97/torrent-indexer/cache"
+	"github.com/felipemarinho97/torrent-indexer/logging"
 	"github.com/felipemarinho97/torrent-indexer/magnet"
 	"github.com/felipemarinho97/torrent-indexer/monitoring"
 	"github.com/felipemarinho97/torrent-indexer/public"
@@ -20,6 +20,9 @@ import (
 )
 
 func main() {
+	// Initialize logging first
+	logging.InitLogger()
+	
 	redis := cache.NewRedis()
 	searchIndex := meilisearch.NewSearchIndexer(os.Getenv("MEILISEARCH_ADDRESS"), os.Getenv("MEILISEARCH_KEY"), "torrents")
 	var magnetMetadataAPI *magnet.MetadataClient
@@ -41,15 +44,15 @@ func main() {
 	// get shot-lived and long-lived cache expiration from env
 	shortLivedCacheExpiration, err := str2duration.ParseDuration(os.Getenv("SHORT_LIVED_CACHE_EXPIRATION"))
 	if err == nil {
-		fmt.Printf("Setting short-lived cache expiration to %s\n", shortLivedCacheExpiration)
+		logging.Info().Dur("expiration", shortLivedCacheExpiration).Msg("Setting short-lived cache expiration")
 		req.SetShortLivedCacheExpiration(shortLivedCacheExpiration)
 	}
 	longLivedCacheExpiration, err := str2duration.ParseDuration(os.Getenv("LONG_LIVED_CACHE_EXPIRATION"))
 	if err == nil {
-		fmt.Printf("Setting long-lived cache expiration to %s\n", longLivedCacheExpiration)
+		logging.Info().Dur("expiration", longLivedCacheExpiration).Msg("Setting long-lived cache expiration")
 		redis.SetDefaultExpiration(longLivedCacheExpiration)
 	} else {
-		fmt.Println(err)
+		logging.Error().Err(err).Msg("Failed to parse long-lived cache expiration")
 	}
 
 	icfg := handler.IndexersConfig{
@@ -94,9 +97,9 @@ func main() {
 		port = "7006"
 	}
 
-	fmt.Printf("Server listening on http://localhost:%s\n", port)
+	logging.Info().Str("port", port).Msg("Server listening")
 	err = http.ListenAndServe(":"+port, indexerMux)
 	if err != nil {
-		panic(err)
+		logging.Fatal().Err(err).Msg("Server failed to start")
 	}
 }
