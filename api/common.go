@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/felipemarinho97/torrent-indexer/logging"
 	"github.com/felipemarinho97/torrent-indexer/schema"
 )
 
@@ -21,7 +22,7 @@ func getDocument(ctx context.Context, i *Indexer, link string) (*goquery.Documen
 	docCache, err := i.redis.Get(ctx, link)
 	if err == nil {
 		i.metrics.CacheHits.WithLabelValues("document_body").Inc()
-		fmt.Printf("returning from long-lived cache: %s\n", link)
+		logging.Debug().Str("url", link).Msg("Returning document from long-lived cache")
 		return goquery.NewDocumentFromReader(io.NopCloser(bytes.NewReader(docCache)))
 	}
 	defer i.metrics.CacheMisses.WithLabelValues("document_body").Inc()
@@ -40,7 +41,7 @@ func getDocument(ctx context.Context, i *Indexer, link string) (*goquery.Documen
 	// set cache
 	err = i.redis.Set(ctx, link, body)
 	if err != nil {
-		fmt.Println(err)
+		logging.Error().Err(err).Str("url", link).Msg("Failed to set document body in redis cache")
 	}
 
 	doc, err := goquery.NewDocumentFromReader(io.NopCloser(bytes.NewReader(body)))
@@ -120,7 +121,7 @@ func findAudioFromText(text string) []schema.Audio {
 			if a != nil {
 				audio = append(audio, *a)
 			} else {
-				fmt.Println("unknown language:", lang)
+				logging.Warn().Str("language", lang).Msg("Unknown language detected")
 			}
 		}
 	}

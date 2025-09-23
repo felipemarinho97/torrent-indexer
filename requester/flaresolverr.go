@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/felipemarinho97/torrent-indexer/logging"
 	"github.com/felipemarinho97/torrent-indexer/utils"
 )
 
@@ -67,7 +68,7 @@ func (f *FlareSolverr) FillSessionPool() error {
 			}
 			return nil
 		}
-		fmt.Println("Failed to list existing FlareSolverr sessions:", err)
+		logging.Error().Err(err).Msg("Failed to list existing FlareSolverr sessions")
 		return err
 	} else {
 		for _, session := range sessions {
@@ -77,7 +78,7 @@ func (f *FlareSolverr) FillSessionPool() error {
 			}
 		}
 		if len(f.sessionPool) > 0 {
-			fmt.Printf("Added %d FlareSolverr sessions to the pool\n", len(f.sessionPool))
+			logging.Info().Int("sessions", len(f.sessionPool)).Msg("Added FlareSolverr sessions to the pool")
 		}
 	}
 
@@ -123,7 +124,7 @@ func (f *FlareSolverr) CreateSession() string {
 	// Add session to the pool
 	f.sessionPool <- session
 
-	fmt.Println("Created new FlareSolverr session:", session)
+	logging.Info().Str("session", session).Msg("Created new FlareSolverr session")
 	return session
 }
 
@@ -243,7 +244,7 @@ func (f *FlareSolverr) Get(_url string, attempts int) (io.ReadCloser, error) {
 		// if is 500 Internal Server Error, recursively call the Get method
 		if resp.StatusCode == http.StatusInternalServerError && attempts != 0 {
 			attempts--
-			fmt.Printf("[FlareSolverr] Internal Server Error for %s, retrying...\n", _url)
+			logging.Warn().Str("url", _url).Int("attempts_left", attempts).Msg("FlareSolverr Internal Server Error, retrying")
 			return f.Get(_url, attempts) // Retry the request
 		}
 
@@ -258,14 +259,14 @@ func (f *FlareSolverr) Get(_url string, attempts int) (io.ReadCloser, error) {
 
 	// check if the response is valid HTML
 	if !utils.IsValidHTML(response.Solution.Response) {
-		fmt.Printf("[FlareSolverr] Invalid HTML response from %s\n", _url)
-		fmt.Printf("[FlareSolverr] Response: %s\n", response.Solution.Response)
+		logging.Warn().Str("url", _url).Msg("FlareSolverr returned invalid HTML response")
+		logging.Debug().Str("url", _url).Str("response", response.Solution.Response).Msg("FlareSolverr response content")
 		response.Solution.Response = ""
 	}
 
 	// If the response body is empty but cookies are present, make a new request
 	if response.Solution.Response == "" && len(response.Solution.Cookies) > 0 {
-		fmt.Printf("[FlareSolverr] Making a new request to %s with cookies\n", _url)
+		logging.Debug().Str("url", _url).Msg("FlareSolverr making new request with cookies")
 		// Create a new request with cookies
 		client := &http.Client{}
 		cookieJar, err := cookiejar.New(&cookiejar.Options{})

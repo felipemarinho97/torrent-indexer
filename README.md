@@ -34,6 +34,9 @@ You can configure the server using the following environment variables:
   
 - `PORT`: (optional) The port that the server will listen to. Default: `7006`
 - `METRICS_PORT`: (optional) The port that the metrics server will listen to. Default: `8081`
+- `LOG_LEVEL`: (optional) The log level. Default: `1` (info). 
+  - Possible values: `0` (debug), `1` (info), `2` (warn), `3` (error)
+- `LOG_FORMAT`: (optional) The log format. Can be "json" or default to console logger.
 - `FLARESOLVERR_ADDRESS`: (optional) The address of the FlareSolverr instance. Default: `N/A`
 - `MEILISEARCH_ADDRESS`: (optional) The address of the MeiliSearch instance. Default: `N/A`
 - `MEILISEARCH_KEY`: (optional) The API key of the MeiliSearch instance. Default: `N/A`

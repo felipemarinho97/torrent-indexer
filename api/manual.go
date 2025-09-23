@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"time"
 
+	"github.com/felipemarinho97/torrent-indexer/logging"
 	"github.com/felipemarinho97/torrent-indexer/magnet"
 	"github.com/felipemarinho97/torrent-indexer/schema"
 	goscrape "github.com/felipemarinho97/torrent-indexer/scrape"
@@ -31,10 +31,10 @@ func (i *Indexer) HandlerManualIndexer(w http.ResponseWriter, r *http.Request) {
 	out, err := i.redis.Get(ctx, manualTorrentsRedisKey)
 	if err != nil && !errors.Is(err, redis.Nil) {
 		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Println(err)
+		logging.ErrorWithRequest(r).Err(err).Msg("Failed to fetch manual torrents from Redis")
 		err = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 		if err != nil {
-			fmt.Println(err)
+			logging.ErrorWithRequest(r).Err(err).Msg("Failed to encode error response")
 		}
 		i.metrics.IndexerErrors.WithLabelValues("manual").Inc()
 		return
@@ -47,7 +47,7 @@ func (i *Indexer) HandlerManualIndexer(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		err = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 		if err != nil {
-			fmt.Println(err)
+			logging.ErrorWithRequest(r).Err(err).Msg("Failed to encode error response")
 		}
 		i.metrics.IndexerErrors.WithLabelValues("manual").Inc()
 		return
@@ -61,7 +61,7 @@ func (i *Indexer) HandlerManualIndexer(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusBadRequest)
 			err = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 			if err != nil {
-				fmt.Println(err)
+				logging.ErrorWithRequest(r).Err(err).Msg("Failed to encode error response")
 			}
 			i.metrics.IndexerErrors.WithLabelValues("manual").Inc()
 			return
@@ -69,7 +69,7 @@ func (i *Indexer) HandlerManualIndexer(w http.ResponseWriter, r *http.Request) {
 
 		magnet, err := magnet.ParseMagnetUri(req.MagnetLink)
 		if err != nil {
-			fmt.Println(err)
+			logging.ErrorWithRequest(r).Err(err).Str("magnet_link", req.MagnetLink).Msg("Failed to parse magnet link")
 		}
 		var audio []schema.Audio
 		releaseTitle := magnet.DisplayName
@@ -79,7 +79,7 @@ func (i *Indexer) HandlerManualIndexer(w http.ResponseWriter, r *http.Request) {
 
 		peer, seed, err := goscrape.GetLeechsAndSeeds(ctx, i.redis, i.metrics, infoHash, trackers)
 		if err != nil {
-			fmt.Println(err)
+			logging.ErrorWithRequest(r).Err(err).Str("info_hash", infoHash).Msg("Failed to get peers and seeds")
 		}
 
 		title := processTitle(releaseTitle, magnetAudio)
@@ -99,7 +99,7 @@ func (i *Indexer) HandlerManualIndexer(w http.ResponseWriter, r *http.Request) {
 		indexedTorrents = append(indexedTorrents, ixt)
 		out, err := json.Marshal(indexedTorrents)
 		if err != nil {
-			fmt.Println(err)
+			logging.Error().Err(err).Msg("Failed to marshal indexed torrents")
 		}
 
 		err = i.redis.SetWithExpiration(ctx, manualTorrentsRedisKey, out, manualTorrentExpiration)
@@ -107,7 +107,7 @@ func (i *Indexer) HandlerManualIndexer(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusInternalServerError)
 			err = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 			if err != nil {
-				fmt.Println(err)
+				logging.Error().Err(err).Msg("Failed to encode error response")
 			}
 			i.metrics.IndexerErrors.WithLabelValues("manual").Inc()
 			return
@@ -120,6 +120,6 @@ func (i *Indexer) HandlerManualIndexer(w http.ResponseWriter, r *http.Request) {
 		Count:   len(indexedTorrents),
 	})
 	if err != nil {
-		fmt.Println(err)
+		logging.Error().Err(err).Msg("Failed to encode response")
 	}
 }

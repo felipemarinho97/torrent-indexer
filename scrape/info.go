@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/felipemarinho97/torrent-indexer/cache"
+	"github.com/felipemarinho97/torrent-indexer/logging"
 	"github.com/felipemarinho97/torrent-indexer/monitoring"
 	"github.com/felipemarinho97/torrent-indexer/utils"
 )
@@ -130,10 +131,10 @@ func GetLeechsAndSeeds(ctx context.Context, r *cache.Redis, m *monitoring.Metric
 	leech, seed, err := getPeersFromCache(ctx, r, infoHash)
 	if err != nil {
 		m.CacheHits.WithLabelValues("peers").Inc()
-		fmt.Println("unable to get peers from cache for infohash:", infoHash)
+		logging.Debug().Str("info_hash", infoHash).Msg("Unable to get peers from cache")
 	} else {
 		m.CacheMisses.WithLabelValues("peers").Inc()
-		fmt.Println("hash:", infoHash, "get from cache -> leech:", leech, "seed:", seed)
+		logging.Debug().Str("info_hash", infoHash).Int("leech", leech).Int("seed", seed).Msg("Retrieved peers from cache")
 		return leech, seed, nil
 	}
 
@@ -178,9 +179,9 @@ func GetLeechsAndSeeds(ctx context.Context, r *cache.Redis, m *monitoring.Metric
 		case peer = <-peerChan:
 			err = setPeersToCache(ctx, r, infoHash, peer.Leechers, peer.Seeders)
 			if err != nil {
-				fmt.Println(err)
+				logging.Error().Err(err).Str("info_hash", infoHash).Msg("Failed to cache peer data")
 			} else {
-				fmt.Println("hash:", infoHash, "get from tracker -> leech:", peer.Leechers, "seed:", peer.Seeders)
+				logging.Debug().Str("info_hash", infoHash).Int("leech", peer.Leechers).Int("seed", peer.Seeders).Msg("Retrieved peers from tracker")
 			}
 			return peer.Leechers, peer.Seeders, nil
 		}
