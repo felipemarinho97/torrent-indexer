@@ -22,7 +22,7 @@ import (
 func main() {
 	// Initialize logging first
 	logging.InitLogger()
-	
+
 	redis := cache.NewRedis()
 	searchIndex := meilisearch.NewSearchIndexer(os.Getenv("MEILISEARCH_ADDRESS"), os.Getenv("MEILISEARCH_KEY"), "torrents")
 	var magnetMetadataAPI *magnet.MetadataClient
@@ -78,6 +78,8 @@ func main() {
 	indexerMux.HandleFunc("/search/stats", search.StatsHandler)
 	indexerMux.Handle("/ui/", http.StripPrefix("/ui/", http.FileServer(http.FS(public.UIFiles))))
 
+	loggedIndexerMux := logging.HTTPLoggingMiddleware(indexerMux)
+
 	metricsMux.Handle("/metrics", promhttp.Handler())
 
 	metricsPort := os.Getenv("METRICS_PORT")
@@ -98,7 +100,7 @@ func main() {
 	}
 
 	logging.Info().Str("port", port).Msg("Server listening")
-	err = http.ListenAndServe(":"+port, indexerMux)
+	err = http.ListenAndServe(":"+port, loggedIndexerMux)
 	if err != nil {
 		logging.Fatal().Err(err).Msg("Server failed to start")
 	}
