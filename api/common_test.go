@@ -292,6 +292,12 @@ func Test_appendAudioISO639_2Code(t *testing.T) {
 			},
 			want: "Movie Title (brazilian, eng)",
 		},
+		{
+			name:  "should not append empty audio",
+			title: "Movie Title",
+			a:     []schema.Audio{},
+			want:  "Movie Title",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
