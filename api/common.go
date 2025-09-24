@@ -120,8 +120,11 @@ func findAudioFromText(text string) []schema.Audio {
 			a := schema.GetAudioFromString(lang)
 			if a != nil {
 				audio = append(audio, *a)
-			} else {
-				logging.Warn().Str("language", lang).Msg("Unknown language detected")
+			} else if strings.TrimSpace(lang) != "" {
+				logging.Warn().
+					Str("language", lang).
+					Msg("Unknown language detected")
+				logging.Debug().Str("text", text).Msg("Unknown language detected from this text")
 			}
 		}
 	}
