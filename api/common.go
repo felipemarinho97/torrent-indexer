@@ -134,7 +134,12 @@ func findYearFromText(text string, title string) (year string) {
 	re := regexp.MustCompile(`Lançamento: (.*)`)
 	yearMatch := re.FindStringSubmatch(text)
 	if len(yearMatch) > 0 {
-		year = yearMatch[1]
+		lancamentoText := strings.TrimSpace(yearMatch[1])
+		// Extract 4-digit year from the lançamento field
+		yearRe := regexp.MustCompile(`\b(\d{4})\b`)
+		if yearDigits := yearRe.FindStringSubmatch(lancamentoText); len(yearDigits) > 0 {
+			year = yearDigits[1]
+		}
 	}
 
 	if year == "" {
@@ -144,7 +149,8 @@ func findYearFromText(text string, title string) (year string) {
 			year = yearMatch[1]
 		}
 	}
-	return strings.TrimSpace(year)
+
+	return year
 }
 
 // findSizesFromText extracts sizes from a given text.

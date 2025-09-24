@@ -303,3 +303,57 @@ func Test_appendAudioISO639_2Code(t *testing.T) {
 		})
 	}
 }
+
+func Test_findYearFromText(t *testing.T) {
+	tests := []struct {
+		name  string
+		text  string
+		title string
+		want  string
+	}{
+		{
+			name:  "should find year from text",
+			text:  "Some Movie Title\nLançamento: 2020\nTipo: Filme\nDescription: The movie was released in 2020.",
+			title: "Some Movie Title",
+			want:  "2020",
+		},
+		{
+			name:  "should find year from text with patten YYYY-MM-DD",
+			text:  "Some Movie Title\nLançamento: 2020-06-46\nTipo: Filme\nDescription: The movie is so good.",
+			title: "Some Movie Title",
+			want:  "2020",
+		},
+		{
+			name:  "should find year from text with patten DD/MM/YYYY",
+			text:  "Some Movie Title\nLançamento: 12/06/2020\nTipo: Filme\nDescription: The movie is so good.",
+			title: "Some Movie Title",
+			want:  "2020",
+		},
+		{
+			name:  "should find year from title",
+			text:  "Some Movie Title without year info",
+			title: "Some Movie Title (2021)",
+			want:  "2021",
+		},
+		{
+			name:  "should return empty string when year is not found",
+			text:  "No year information here.",
+			title: "Another Movie Title",
+			want:  "",
+		},
+		{
+			name:  "should return empty string when year is not found",
+			text:  "Some Movie Title\nLançamento: Vários anos.\nTipo: Filme\nDescription: The movie was released in 2020.",
+			title: "Another Movie Title",
+			want:  "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := findYearFromText(tt.text, tt.title)
+			if got != tt.want {
+				t.Errorf("findYearFromText() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
