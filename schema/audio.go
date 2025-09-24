@@ -26,6 +26,8 @@ const (
 	AudioRussian     = "Russo"
 	AudioSwedish     = "Sueco"
 	AudioSwedish2    = "Suéco"
+	AudioSerbian     = "Sérvio"
+	AudioSerbian2    = "Servio"
 	AudioUkrainian   = "Ucraniano"
 	AudioPolish      = "Polaco"
 	AudioPolish2     = "Polonês"
@@ -34,6 +36,8 @@ const (
 	AudioThai2       = "Tailandes"
 	AudioTurkish     = "Turco"
 	AudioHindi       = "Hindi"
+	AudioHungarian   = "Húngaro"
+	AudioHungarian2  = "Hungaro"
 	AudioFarsi       = "Persa"
 	AudioFarsi2      = "Farsi"
 	AudioFarsi3      = "Iraniano"
@@ -85,6 +89,8 @@ var AudioList = []Audio{
 	AudioRussian,
 	AudioSwedish,
 	AudioSwedish2,
+	AudioSerbian,
+	AudioSerbian2,
 	AudioUkrainian,
 	AudioPolish,
 	AudioPolish2,
@@ -93,6 +99,8 @@ var AudioList = []Audio{
 	AudioThai2,
 	AudioTurkish,
 	AudioHindi,
+	AudioHungarian,
+	AudioHungarian2,
 	AudioFarsi,
 	AudioFarsi2,
 	AudioFarsi3,
@@ -179,6 +187,10 @@ func (a Audio) toTag() string {
 		return "swe"
 	case AudioSwedish2:
 		return "swe"
+	case AudioSerbian:
+		return "srb"
+	case AudioSerbian2:
+		return "srb"
 	case AudioUkrainian:
 		return "ukr"
 	case AudioPolish:
@@ -195,6 +207,10 @@ func (a Audio) toTag() string {
 		return "tur"
 	case AudioHindi:
 		return "hin"
+	case AudioHungarian:
+		return "hun"
+	case AudioHungarian2:
+		return "hun"
 	case AudioFarsi:
 		return "fas"
 	case AudioFarsi2:
