@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/felipemarinho97/torrent-indexer/cache"
+	"github.com/felipemarinho97/torrent-indexer/logging"
 )
 
 type MetadataRequest struct {
@@ -88,6 +89,7 @@ func (c *MetadataClient) FetchMetadata(ctx context.Context, magnetURI string) (*
 	}
 	req.Header.Set("Content-Type", "application/json")
 
+	logging.Debug().Str("info_hash", fmt.Sprint(m.InfoHash)).Msg("Fetching metadata from MAGNET_METADATA_API")
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to send POST request: %w", err)

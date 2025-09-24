@@ -64,7 +64,7 @@ func FullfilMissingMetadata(i *Indexer, r *http.Request, torrents []schema.Index
 		if m.Name != "" {
 			it.Title = m.Name
 		}
-		logging.Debug().Str("info_hash", m.InfoHash).Str("size", it.Size).Msg("Retrieved metadata from cache")
+		logging.Debug().Str("info_hash", m.InfoHash).Str("size", it.Size).Msg("Retrieved metadata from MagnetMetadataAPI")
 
 		// If files are present, add them to the indexed torrent
 		if len(m.Files) > 0 {
