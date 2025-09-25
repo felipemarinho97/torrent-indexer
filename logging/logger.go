@@ -14,7 +14,6 @@ import (
 func InitLogger() {
 	// Configure zerolog
 	zerolog.TimeFieldFormat = time.RFC3339
-
 	// Set log level from environment or default to Info
 	level := zerolog.InfoLevel
 	if envLevel := os.Getenv("LOG_LEVEL"); envLevel != "" {
@@ -102,7 +101,6 @@ func WithContext(ctx context.Context) *zerolog.Event {
 			event = event.Str("request_id", id)
 		}
 	}
-
 	return event
 }
 
@@ -112,12 +110,10 @@ func getClientIP(r *http.Request) string {
 	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
 		return xff
 	}
-
 	// Check X-Real-IP header
 	if xri := r.Header.Get("X-Real-IP"); xri != "" {
 		return xri
 	}
-
 	// Fall back to RemoteAddr
 	return r.RemoteAddr
 }

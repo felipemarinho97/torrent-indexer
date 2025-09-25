@@ -239,3 +239,127 @@ func Test_getIMDBLink(t *testing.T) {
 		})
 	}
 }
+
+func Test_getAudioFromTitle(t *testing.T) {
+	tests := []struct {
+		name             string
+		releaseTitle     string
+		audioFromContent []schema.Audio
+		want             []schema.Audio
+	}{
+		{
+			name:             "should return portuguese audio when title contains dual",
+			releaseTitle:     "A Bailarina (2017) Dual Áudio BluRay 720p | 1080p – Torrent Download",
+			audioFromContent: []schema.Audio{schema.AudioFrench},
+			want:             []schema.Audio{schema.AudioPortuguese, schema.AudioFrench},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := getAudioFromTitle(tt.releaseTitle, tt.audioFromContent)
+
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("getAudioFromTitle() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_appendAudioISO639_2Code(t *testing.T) {
+	tests := []struct {
+		name  string
+		title string
+		a     []schema.Audio
+		want  string
+	}{
+		{
+			name:  "should append audio in title",
+			title: "Movie Title",
+			a: []schema.Audio{
+				schema.AudioPortuguese,
+				schema.AudioEnglish,
+			},
+			want: "Movie Title (brazilian, eng)",
+		},
+		{
+			name:  "should append audio in title and deduplicate",
+			title: "Movie Title",
+			a: []schema.Audio{
+				schema.AudioPortuguese,
+				schema.AudioPortuguese2,
+				schema.AudioEnglish,
+				schema.AudioEnglish2,
+			},
+			want: "Movie Title (brazilian, eng)",
+		},
+		{
+			name:  "should not append empty audio",
+			title: "Movie Title",
+			a:     []schema.Audio{},
+			want:  "Movie Title",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := appendAudioISO639_2Code(tt.title, tt.a)
+
+			if got != tt.want {
+				t.Errorf("appendAudioISO639_2Code() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_findYearFromText(t *testing.T) {
+	tests := []struct {
+		name  string
+		text  string
+		title string
+		want  string
+	}{
+		{
+			name:  "should find year from text",
+			text:  "Some Movie Title\nLançamento: 2020\nTipo: Filme\nDescription: The movie was released in 2020.",
+			title: "Some Movie Title",
+			want:  "2020",
+		},
+		{
+			name:  "should find year from text with patten YYYY-MM-DD",
+			text:  "Some Movie Title\nLançamento: 2020-06-46\nTipo: Filme\nDescription: The movie is so good.",
+			title: "Some Movie Title",
+			want:  "2020",
+		},
+		{
+			name:  "should find year from text with patten DD/MM/YYYY",
+			text:  "Some Movie Title\nLançamento: 12/06/2020\nTipo: Filme\nDescription: The movie is so good.",
+			title: "Some Movie Title",
+			want:  "2020",
+		},
+		{
+			name:  "should find year from title",
+			text:  "Some Movie Title without year info",
+			title: "Some Movie Title (2021)",
+			want:  "2021",
+		},
+		{
+			name:  "should return empty string when year is not found",
+			text:  "No year information here.",
+			title: "Another Movie Title",
+			want:  "",
+		},
+		{
+			name:  "should return empty string when year is not found",
+			text:  "Some Movie Title\nLançamento: Vários anos.\nTipo: Filme\nDescription: The movie was released in 2020.",
+			title: "Another Movie Title",
+			want:  "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := findYearFromText(tt.text, tt.title)
+			if got != tt.want {
+				t.Errorf("findYearFromText() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

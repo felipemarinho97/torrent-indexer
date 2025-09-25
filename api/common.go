@@ -120,8 +120,11 @@ func findAudioFromText(text string) []schema.Audio {
 			a := schema.GetAudioFromString(lang)
 			if a != nil {
 				audio = append(audio, *a)
-			} else {
-				logging.Warn().Str("language", lang).Msg("Unknown language detected")
+			} else if strings.TrimSpace(lang) != "" {
+				logging.Warn().
+					Str("language", lang).
+					Msg("Unknown language detected")
+				logging.Debug().Str("text", text).Msg("Unknown language detected from this text")
 			}
 		}
 	}
@@ -134,7 +137,12 @@ func findYearFromText(text string, title string) (year string) {
 	re := regexp.MustCompile(`Lançamento: (.*)`)
 	yearMatch := re.FindStringSubmatch(text)
 	if len(yearMatch) > 0 {
-		year = yearMatch[1]
+		lancamentoText := strings.TrimSpace(yearMatch[1])
+		// Extract 4-digit year from the lançamento field
+		yearRe := regexp.MustCompile(`\b(\d{4})\b`)
+		if yearDigits := yearRe.FindStringSubmatch(lancamentoText); len(yearDigits) > 0 {
+			year = yearDigits[1]
+		}
 	}
 
 	if year == "" {
@@ -144,7 +152,8 @@ func findYearFromText(text string, title string) (year string) {
 			year = yearMatch[1]
 		}
 	}
-	return strings.TrimSpace(year)
+
+	return year
 }
 
 // findSizesFromText extracts sizes from a given text.
@@ -187,6 +196,7 @@ func appendAudioISO639_2Code(title string, a []schema.Audio) string {
 		for _, lang := range a {
 			audio = append(audio, lang.String())
 		}
+		audio = slices.Compact(audio)
 		title = fmt.Sprintf("%s (%s)", title, strings.Join(audio, ", "))
 	}
 	return title
