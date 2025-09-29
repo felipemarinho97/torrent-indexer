@@ -71,7 +71,7 @@ func fetchDynamicTrackers(ctx context.Context, r *cache.Redis) ([]string, error)
 		var trackers []string
 		for _, line := range lines {
 			line = strings.TrimSpace(line)
-			if line != "" && (strings.HasPrefix(line, "http://") || strings.HasPrefix(line, "https://") || strings.HasPrefix(line, "udp://")) {
+			if line != "" {
 				trackers = append(trackers, line)
 			}
 		}
