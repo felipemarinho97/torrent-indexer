@@ -28,11 +28,35 @@ type Requster struct {
 }
 
 func NewRequester(fs *FlareSolverr, c *cache.Redis) *Requster {
-	return &Requster{fs: fs, httpClient: &http.Client{}, c: c, shortLivedCacheExpiration: 30 * time.Minute}
+	httpClient := &http.Client{
+		Timeout: 30 * time.Second,
+		Transport: &http.Transport{
+			DisableCompression: false,
+		},
+	}
+
+	return &Requster{fs: fs, httpClient: httpClient, c: c, shortLivedCacheExpiration: 30 * time.Minute}
 }
 
 func (i *Requster) SetShortLivedCacheExpiration(expiration time.Duration) {
 	i.shortLivedCacheExpiration = expiration
+}
+
+// spoofBrowserHeaders adds browser-like headers to spoof a real browser
+func spoofBrowserHeaders(req *http.Request) {
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+	req.Header.Set("Accept-Language", "en-US,en;q=0.9")
+	req.Header.Set("Accept-Encoding", "gzip, deflate, br")
+	req.Header.Set("Referer", "https://google.com/")
+	req.Header.Set("DNT", "1")
+	req.Header.Set("Connection", "keep-alive")
+	req.Header.Set("Upgrade-Insecure-Requests", "1")
+	req.Header.Set("Sec-Fetch-Dest", "document")
+	req.Header.Set("Sec-Fetch-Mode", "navigate")
+	req.Header.Set("Sec-Fetch-Site", "none")
+	req.Header.Set("Sec-Fetch-User", "?1")
+	req.Header.Set("Cache-Control", "max-age=0")
 }
 
 func (i *Requster) GetDocument(ctx context.Context, url string) (io.ReadCloser, error) {
@@ -48,7 +72,15 @@ func (i *Requster) GetDocument(ctx context.Context, url string) (io.ReadCloser, 
 	}
 
 	// try request with plain client
-	resp, err := i.httpClient.Get(url)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request for url %s: %w", url, err)
+	}
+
+	// Add browser-like headers to spoof a real browser
+	spoofBrowserHeaders(req)
+
+	resp, err := i.httpClient.Do(req)
 	if err != nil {
 		// try request with flare solverr
 		body, err = i.fs.Get(url, 3)
