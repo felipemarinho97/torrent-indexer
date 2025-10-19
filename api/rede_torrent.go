@@ -87,7 +87,7 @@ func (i *Indexer) HandlerRedeTorrentIndexer(w http.ResponseWriter, r *http.Reque
 
 	// extract each torrent link
 	indexedTorrents := utils.ParallelFlatMap(links, func(link string) ([]schema.IndexedTorrent, error) {
-		return getTorrentsRedeTorrent(ctx, i, link)
+		return getTorrentsRedeTorrent(ctx, i, link, url)
 	})
 
 	// Apply post-processors
@@ -106,9 +106,9 @@ func (i *Indexer) HandlerRedeTorrentIndexer(w http.ResponseWriter, r *http.Reque
 	}
 }
 
-func getTorrentsRedeTorrent(ctx context.Context, i *Indexer, link string) ([]schema.IndexedTorrent, error) {
+func getTorrentsRedeTorrent(ctx context.Context, i *Indexer, link, referer string) ([]schema.IndexedTorrent, error) {
 	var indexedTorrents []schema.IndexedTorrent
-	doc, err := getDocument(ctx, i, link)
+	doc, err := getDocument(ctx, i, link, referer)
 	if err != nil {
 		return nil, err
 	}

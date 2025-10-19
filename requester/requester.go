@@ -42,13 +42,21 @@ func (i *Requster) SetShortLivedCacheExpiration(expiration time.Duration) {
 	i.shortLivedCacheExpiration = expiration
 }
 
-// spoofBrowserHeaders adds browser-like headers to spoof a real browser
-func spoofBrowserHeaders(req *http.Request) {
+// spoofBrowserHeaders adds browser-like headers to spoof a real browser.
+// If referer is empty, it defaults to "https://google.com/"
+func spoofBrowserHeaders(req *http.Request, referer string) {
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
 	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
 	req.Header.Set("Accept-Language", "en-US,en;q=0.9")
 	req.Header.Set("Accept-Encoding", "gzip, deflate, br")
-	req.Header.Set("Referer", "https://google.com/")
+
+	// Use provided referer or default to Google
+	if referer != "" {
+		req.Header.Set("Referer", referer)
+	} else {
+		req.Header.Set("Referer", "https://google.com/")
+	}
+
 	req.Header.Set("DNT", "1")
 	req.Header.Set("Connection", "keep-alive")
 	req.Header.Set("Upgrade-Insecure-Requests", "1")
@@ -59,8 +67,14 @@ func spoofBrowserHeaders(req *http.Request) {
 	req.Header.Set("Cache-Control", "max-age=0")
 }
 
-func (i *Requster) GetDocument(ctx context.Context, url string) (io.ReadCloser, error) {
+func (i *Requster) GetDocument(ctx context.Context, url string, referer ...string) (io.ReadCloser, error) {
 	var body io.ReadCloser
+
+	// Extract referer if provided
+	ref := ""
+	if len(referer) > 0 {
+		ref = referer[0]
+	}
 
 	// try request from short-lived cache
 	key := fmt.Sprintf("%s:%s", cacheKey, url)
@@ -78,7 +92,7 @@ func (i *Requster) GetDocument(ctx context.Context, url string) (io.ReadCloser, 
 	}
 
 	// Add browser-like headers to spoof a real browser
-	spoofBrowserHeaders(req)
+	spoofBrowserHeaders(req, ref)
 
 	resp, err := i.httpClient.Do(req)
 	if err != nil {
