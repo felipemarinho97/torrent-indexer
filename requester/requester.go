@@ -12,6 +12,7 @@ import (
 	"github.com/felipemarinho97/torrent-indexer/cache"
 	"github.com/felipemarinho97/torrent-indexer/logging"
 	"github.com/felipemarinho97/torrent-indexer/utils"
+	"github.com/fereidani/httpdecompressor"
 )
 
 const (
@@ -31,7 +32,12 @@ func NewRequester(fs *FlareSolverr, c *cache.Redis) *Requster {
 	httpClient := &http.Client{
 		Timeout: 30 * time.Second,
 		Transport: &http.Transport{
-			DisableCompression: false,
+			DisableCompression:  false,
+			MaxIdleConns:        100,              // Increase connection pool
+			MaxIdleConnsPerHost: 10,               // More connections per host
+			IdleConnTimeout:     90 * time.Second, // Keep connections alive longer
+			DisableKeepAlives:   false,            // Enable keep-alive
+			ForceAttemptHTTP2:   true,             // Use HTTP/2 when possible
 		},
 	}
 
@@ -47,8 +53,8 @@ func (i *Requster) SetShortLivedCacheExpiration(expiration time.Duration) {
 func spoofBrowserHeaders(req *http.Request, referer string) {
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
 	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
-	req.Header.Set("Accept-Language", "en-US,en;q=0.9")
-	req.Header.Set("Accept-Encoding", "gzip, deflate, br")
+	req.Header.Set("Accept-Language", "en-US,en;q=0.5")
+	req.Header.Set("Accept-Encoding", httpdecompressor.ACCEPT_ENCODING)
 
 	// Use provided referer or default to Google
 	if referer != "" {
@@ -103,13 +109,35 @@ func (i *Requster) GetDocument(ctx context.Context, url string, referer ...strin
 		}
 	} else {
 		defer resp.Body.Close()
-		body = resp.Body
+
+		// Decompress response using httpdecompressor
+		body, err = httpdecompressor.Reader(resp)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decompress response: %w", err)
+		}
+		defer body.Close()
+
+		encoding := resp.Header.Get("Content-Encoding")
+		if encoding != "" {
+			logging.Debug().Str("encoding", encoding).Msg("Decompressing response")
+		}
 	}
 
-	bodyByte, err = io.ReadAll(body)
+	// Pre-allocate buffer based on Content-Length if available
+	var buf bytes.Buffer
+	if resp != nil && resp.ContentLength > 0 {
+		buf.Grow(int(resp.ContentLength))
+	} else {
+		buf.Grow(32 * 1024) // Default 32KB pre-allocation
+	}
+
+	// Use io.Copy instead of io.ReadAll for better performance
+	_, err = io.Copy(&buf, body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
+	bodyByte = buf.Bytes()
+	logging.Debug().Str("urlBody", string(bodyByte)).Msg("Fetched response, caching if valid")
 	if hasChallange(bodyByte) {
 		// try request with flare solverr
 		body, err = i.fs.Get(url, 3)
