@@ -137,7 +137,6 @@ func (i *Requster) GetDocument(ctx context.Context, url string, referer ...strin
 		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
 	bodyByte = buf.Bytes()
-	logging.Debug().Str("urlBody", string(bodyByte)).Msg("Fetched response, caching if valid")
 	if hasChallange(bodyByte) {
 		// try request with flare solverr
 		body, err = i.fs.Get(url, 3)
