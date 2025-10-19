@@ -116,11 +116,6 @@ func (i *Requster) GetDocument(ctx context.Context, url string, referer ...strin
 			return nil, fmt.Errorf("failed to decompress response: %w", err)
 		}
 		defer body.Close()
-
-		encoding := resp.Header.Get("Content-Encoding")
-		if encoding != "" {
-			logging.Debug().Str("encoding", encoding).Msg("Decompressing response")
-		}
 	}
 
 	// Pre-allocate buffer based on Content-Length if available
