@@ -20,7 +20,7 @@ import (
 
 var bludv = IndexerMeta{
 	Label:       "bludv",
-	URL:         "https://bludv.xyz/",
+	URL:         "https://bludv.org/",
 	SearchURL:   "?s=",
 	PagePattern: "page/%s",
 }
