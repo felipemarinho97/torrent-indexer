@@ -17,7 +17,7 @@ import (
 
 // getDocument retrieves a document from the cache or makes a request to get it.
 // It first checks the Redis cache for the document body.
-func getDocument(ctx context.Context, i *Indexer, link string) (*goquery.Document, error) {
+func getDocument(ctx context.Context, i *Indexer, link, referer string) (*goquery.Document, error) {
 	// try to get from redis first
 	docCache, err := i.redis.Get(ctx, link)
 	if err == nil {
@@ -27,7 +27,7 @@ func getDocument(ctx context.Context, i *Indexer, link string) (*goquery.Documen
 	}
 	defer i.metrics.CacheMisses.WithLabelValues("document_body").Inc()
 
-	resp, err := i.requester.GetDocument(ctx, link)
+	resp, err := i.requester.GetDocument(ctx, link, referer)
 	if err != nil {
 		return nil, err
 	}
