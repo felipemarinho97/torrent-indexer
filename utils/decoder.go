@@ -22,6 +22,17 @@ func DecodeAdLink(encodedStr string) (string, error) {
 	return htmlUnescaped, nil
 }
 
+func Base64Decode(input string) (string, error) {
+	if input == "" {
+		return "", fmt.Errorf("empty string")
+	}
+	decodedBytes, err := base64.StdEncoding.DecodeString(input)
+	if err != nil {
+		return "", err
+	}
+	return string(decodedBytes), nil
+}
+
 // Helper function to reverse a string
 func reverseString(s string) string {
 	runes := []rune(s)
