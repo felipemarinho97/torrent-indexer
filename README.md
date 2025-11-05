@@ -18,6 +18,7 @@ Visit [https://torrent-indexer.darklyn.org/](https://torrent-indexer.darklyn.org
 - [comandohds](https://comandohds.org/)
 - [rede-torrent](https://redetorrent.com/)
 - [vaca-torrent](https://vacatorrentmov.com/)
+- [filme-torrent](https://www.filmetorrent.org)
 
 ## Deploy
 
