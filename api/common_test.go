@@ -74,6 +74,16 @@ func Test_findAudioFromText(t *testing.T) {
 			},
 		},
 		{
+			name: "should return audio in portuguese and japanese",
+			args: args{
+				text: "Languages: Português | Japonês",
+			},
+			want: []schema.Audio{
+				schema.AudioPortuguese,
+				schema.AudioJapanese,
+			},
+		},
+		{
 			name: "should return audio in portuguese",
 			args: args{
 				text: "Idioma: Português",
@@ -352,6 +362,18 @@ func Test_findYearFromText(t *testing.T) {
 			text:  "Some Movie Title\nLançamento: Vários anos.\nTipo: Filme\nDescription: The movie was released in 2020.",
 			title: "Another Movie Title",
 			want:  "",
+		},
+		{
+			name:  "should find year from text with patten YYYY",
+			text:  "Some Movie Title\nRelease Year: 1999\nTipo: Filme\nDescription: The movie is so good.",
+			title: "Some Movie Title",
+			want:  "1999",
+		},
+		{
+			name:  "should find year from text with patten YYYY",
+			text:  "Some Movie Title\nRelease Year: 1999\nTipo: Filme\nDescription: The movie is so good.",
+			title: "Some Movie Title",
+			want:  "1999",
 		},
 	}
 	for _, tt := range tests {

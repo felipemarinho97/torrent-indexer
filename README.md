@@ -15,8 +15,8 @@ Visit [https://torrent-indexer.darklyn.org/](https://torrent-indexer.darklyn.org
 - [bludv](https://bludvfilmes.tv/)
 - [torrent-dos-filmes](https://torrentdosfilmes.se/)
 - [starck-filmes](https://www.starckfilmes.fans/)
-- [comandohds](https://comandohds.org/)
 - [rede-torrent](https://redetorrent.com/)
+- [vaca-torrent](https://vacatorrentmov.com/)
 - [filme-torrent](https://www.filmetorrent.org)
 
 ## Deploy
@@ -166,9 +166,10 @@ settings:
       bludv: BLUDV
       comando_torrents: Comando Torrents
       torrent-dos-filmes: Torrent dos Filmes
-      comandohds: Comando HDs
       starck-filmes: Starck Filmes
       rede_torrent: Rede Torrent
+      filme_torrent: Filme Torrent
+      vaca_torrent: Vaca Torrent
 
 search:
   paths:
