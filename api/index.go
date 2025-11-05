@@ -143,6 +143,17 @@ func HandlerIndex(w http.ResponseWriter, r *http.Request) {
 					},
 				},
 			},
+			"/indexers/vaca_torrent": []map[string]interface{}{
+				{
+					"method":      "GET",
+					"description": "Indexer for Vaca Torrent",
+					"query_params": map[string]string{
+						"q":              "search query",
+						"page":           "page number",
+						"filter_results": "if results with similarity equals to zero should be filtered (true/false)",
+					},
+				},
+			},
 			"/indexers/manual": []map[string]interface{}{
 				{
 					"method":      "POST",

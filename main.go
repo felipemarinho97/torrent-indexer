@@ -72,6 +72,7 @@ func main() {
 	indexerMux.HandleFunc("/indexers/rede_torrent", indexers.HandlerRedeTorrentIndexer)
 	indexerMux.HandleFunc("/indexers/starck-filmes", indexers.HandlerStarckFilmesIndexer)
 	indexerMux.HandleFunc("/indexers/torrent-dos-filmes", indexers.HandlerTorrentDosFilmesIndexer)
+	indexerMux.HandleFunc("/indexers/vaca_torrent", indexers.HandlerVacaTorrentIndexer)
 	indexerMux.HandleFunc("/indexers/manual", indexers.HandlerManualIndexer)
 	indexerMux.HandleFunc("/search", search.SearchTorrentHandler)
 	indexerMux.HandleFunc("/search/health", search.HealthHandler)

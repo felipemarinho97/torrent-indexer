@@ -73,6 +73,10 @@ var datePatterns = []datePattern{
 	{regexp.MustCompile(`\d{4}-\d{2}-\d{2}`), "2006-01-02"},
 	{regexp.MustCompile(`\d{2}-\d{2}-\d{4}`), "02-01-2006"},
 	{regexp.MustCompile(`\d{2}/\d{2}/\d{4}`), "02/01/2006"},
+	// Release Date: 4, October
+	{regexp.MustCompile(`\d{1,2},? [A-Za-z]+`), "2, January"},
+	// Release Date: October 4, 2020
+	{regexp.MustCompile(`[A-Za-z]+ \d{1,2},? \d{4}`), "January 2, 2006"},
 }
 
 // getPublishedDateFromRawString extracts the date from a raw string using predefined patterns.
@@ -110,7 +114,7 @@ func getSeparator(s string) string {
 // It looks for patterns like "Áudio: Português, Inglês" or "Idioma: Português, Inglês"
 func findAudioFromText(text string) []schema.Audio {
 	var audio []schema.Audio
-	re := regexp.MustCompile(`(.udio|Idioma):.?(.*)`)
+	re := regexp.MustCompile(`(.udio|Idioma|Languages):.?(.*)`)
 	audioMatch := re.FindStringSubmatch(text)
 	if len(audioMatch) > 0 {
 		sep := getSeparator(audioMatch[2])
@@ -134,7 +138,7 @@ func findAudioFromText(text string) []schema.Audio {
 // findYearFromText extracts the year from a given text.
 // It looks for patterns like "Lançamento: 2001" in the title.
 func findYearFromText(text string, title string) (year string) {
-	re := regexp.MustCompile(`Lançamento: (.*)`)
+	re := regexp.MustCompile(`(?:Lançamento|Year): (.*)`)
 	yearMatch := re.FindStringSubmatch(text)
 	if len(yearMatch) > 0 {
 		lancamentoText := strings.TrimSpace(yearMatch[1])

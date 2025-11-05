@@ -17,6 +17,7 @@ Visit [https://torrent-indexer.darklyn.org/](https://torrent-indexer.darklyn.org
 - [starck-filmes](https://www.starckfilmes.fans/)
 - [comandohds](https://comandohds.org/)
 - [rede-torrent](https://redetorrent.com/)
+- [vaca-torrent](https://vacatorrentmov.com/)
 
 ## Deploy
 
