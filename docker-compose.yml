@@ -12,7 +12,7 @@ services:
     environment:
       - LOG_LEVEL=0 # 0=debug, 1=info, 2=warn, 3=error
       - REDIS_HOST=redis
-      - FLARESOLVERR_ADDRESS=http://flaresolverr:8191
+      - FLARESOLVERR_ADDRESS=http://flaresolverr.meusv.duckdns.org
 
       ## Meilisearch configuration (optional)
       # - MEILISEARCH_ADDRESS=http://meilisearch:7700
@@ -49,26 +49,26 @@ services:
   ## deploy if you want to fetch metadata from p2p network
   ## CAUTION: Never deploy this container on a cloud server (AWS, GCP, Azure, Oracle), or you will get banned!
   #
-  # magnet-metadata-api:
-  #   image: felipemarinho97/magnet-metadata-api:latest
-  #   container_name: magnet-metadata-api
-  #   restart: unless-stopped
-  #   ports:
-  #     - "8999:8080"
-  #     - "42069:42069"
-  #   networks:
-  #     - indexer
-  #   environment:
-  #     - PORT=8080
-  #     - REDIS_URL=redis://redis:6379
-  #     - CACHE_DIR=/home/torrent/cache
-  #     - ENABLE_DOWNLOADS=false
-  #     - DOWNLOAD_BASE_URL=http://localhost:8999
-  #     - CLIENT_PORT=42069
-  #     - SEEDING_ENABLED=false
-  #     - FALLBACK_INITIAL_CHUNK_SIZE_KB=24
-  #   volumes:
-  #     - ./magnet-metadata-cache:/home/torrent/cache
+   magnet-metadata-api:
+     image: felipemarinho97/magnet-metadata-api:latest
+     container_name: magnet-metadata-api
+     restart: unless-stopped
+     ports:
+       - "8999:8080"
+       - "42069:42069"
+    networks:
+       - indexer
+     environment:
+       - PORT=8080
+       - REDIS_URL=redis://redis:6379
+       - CACHE_DIR=/home/torrent/cache
+       - ENABLE_DOWNLOADS=false
+       - DOWNLOAD_BASE_URL=http://localhost:8999
+       - CLIENT_PORT=42069
+       - SEEDING_ENABLED=false
+       - FALLBACK_INITIAL_CHUNK_SIZE_KB=24
+     volumes:
+       - ./magnet-metadata-cache:/home/torrent/cache
 
 networks:
   indexer:
