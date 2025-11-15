@@ -192,7 +192,7 @@ func getTorrentsFilmeTorrent(ctx context.Context, i *Indexer, link, referer stri
 
 	// Find IMDB link
 	imdbLink := ""
-	article.Find("div.content a, div.entry-content a").Each(func(i int, s *goquery.Selection) {
+	article.Find("div.content a, div.entry-content a, .modal-content a").Each(func(i int, s *goquery.Selection) {
 		href, _ := s.Attr("href")
 		_imdbLink, err := getIMDBLink(href)
 		if err == nil {
