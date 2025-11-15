@@ -56,6 +56,10 @@ func getPublishedDateFromMeta(document *goquery.Document) time.Time {
 	var date time.Time
 	//<meta property="article:published_time" content="2019-08-23T13:20:57+00:00">
 	datePublished := strings.TrimSpace(document.Find("meta[property=\"article:published_time\"]").AttrOr("content", ""))
+	if datePublished == "" {
+		// <meta property="og:updated_time" content="2025-09-30T13:08:58-03:00">
+		datePublished = strings.TrimSpace(document.Find("meta[property=\"og:updated_time\"]").AttrOr("content", ""))
+	}
 
 	if datePublished != "" {
 		date, _ = time.Parse(time.RFC3339, datePublished)
@@ -175,16 +179,21 @@ func findSizesFromText(text string) []string {
 	return sizes
 }
 
+var imdbLinkRE = regexp.MustCompile(`https://www.imdb.com(/[a-z]{2})?/title/(tt\d+)/?`)
+var subtitlesHintIMDBLinkRE = regexp.MustCompile(`imdbid-((tt)?\d+)`)
+
 // getIMDBLink extracts the IMDB link from a given link.
 // It looks for patterns like "https://www.imdb.com/title/tt1234567/".
 // Returns an error if no valid IMDB link is found.
 func getIMDBLink(link string) (string, error) {
 	var imdbLink string
-	re := regexp.MustCompile(`https://www.imdb.com(/[a-z]{2})?/title/(tt\d+)/?`)
 
-	matches := re.FindStringSubmatch(link)
+	matches := imdbLinkRE.FindStringSubmatch(link)
 	if len(matches) > 0 {
 		imdbLink = matches[0]
+	} else if matches := subtitlesHintIMDBLinkRE.FindStringSubmatch(link); len(matches) > 0 {
+		id := strings.TrimPrefix(matches[1], "tt")
+		imdbLink = fmt.Sprintf("https://www.imdb.com/title/tt%s/", id)
 	} else {
 		return "", fmt.Errorf("no imdb link found")
 	}

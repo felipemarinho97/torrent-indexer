@@ -228,6 +228,22 @@ func Test_getIMDBLink(t *testing.T) {
 			want: "https://www.imdb.com/pt/title/tt34608980/",
 		},
 		{
+			name: "should return imdb link from subtitles hint",
+			args: args{
+				link: "https://www.opensubtitles.org/pb/search/sublanguageid-all/imdbid-11214558",
+			},
+			want:    "https://www.imdb.com/title/tt11214558/",
+			wantErr: false,
+		},
+		{
+			name: "should return imdb link from subtitles hint with tt prefix",
+			args: args{
+				link: "https://www.opensubtitles.org/pb/search/sublanguageid-all/imdbid-tt11214558",
+			},
+			want:    "https://www.imdb.com/title/tt11214558/",
+			wantErr: false,
+		},
+		{
 			name: "should return error when link is invalid",
 			args: args{
 				link: "https://www.google.com",
