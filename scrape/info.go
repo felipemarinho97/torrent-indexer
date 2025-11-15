@@ -122,7 +122,7 @@ func GetLeechsAndSeeds(ctx context.Context, r *cache.Redis, m *monitoring.Metric
 				hasFallback = true
 			}
 			// If we get a non-zero response, return immediately
-			if peer.Seeders > 0 || peer.Leechers > 0 {
+			if peer.Seeders > 0 {
 				err = setPeersToCache(ctx, r, infoHash, peer.Leechers, peer.Seeders)
 				if err != nil {
 					logging.Error().Err(err).Str("info_hash", infoHash).Msg("Failed to cache peer data")
@@ -130,6 +130,8 @@ func GetLeechsAndSeeds(ctx context.Context, r *cache.Redis, m *monitoring.Metric
 					logging.Debug().Str("info_hash", infoHash).Int("leech", peer.Leechers).Int("seed", peer.Seeders).Msg("Retrieved peers from tracker")
 				}
 				return peer.Leechers, peer.Seeders, nil
+			} else if peer.Leechers > 0 {
+				fallbackPeer = peer
 			}
 		}
 	}
