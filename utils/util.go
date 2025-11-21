@@ -114,3 +114,44 @@ func FormatBytes(bytes int64) string {
 		return fmt.Sprintf("%.2f TB", float64(bytes)/(1024*1024*1024*1024))
 	}
 }
+
+var sizeRegex = regexp.MustCompile(`(?i)^(\d+(?:[.,]\d+)?)\s*(B|KB|MB|GB|TB)$`)
+
+// ParseSize parses a human-readable size string (e.g., "1.5 GB", "500 MB") to bytes.
+// Returns the size in bytes, or 0 if the string cannot be parsed.
+func ParseSize(sizeStr string) int64 {
+	matches := sizeRegex.FindStringSubmatch(sizeStr)
+	if len(matches) != 3 {
+		return 0
+	}
+
+	// Parse the numeric value, handling both comma and dot as decimal separator
+	var value float64
+	numStr := matches[1]
+	numStr = regexp.MustCompile(`[,]`).ReplaceAllString(numStr, ".")
+	_, err := fmt.Sscanf(numStr, "%f", &value)
+	if err != nil {
+		return 0
+	}
+
+	unit := matches[2]
+
+	// Convert to bytes based on unit
+	var multiplier int64
+	switch unit {
+	case "B":
+		multiplier = 1
+	case "KB", "Kb", "kb":
+		multiplier = 1024
+	case "MB", "Mb", "mb":
+		multiplier = 1024 * 1024
+	case "GB", "Gb", "gb":
+		multiplier = 1024 * 1024 * 1024
+	case "TB", "Tb", "tb":
+		multiplier = 1024 * 1024 * 1024 * 1024
+	default:
+		return 0
+	}
+
+	return int64(value * float64(multiplier))
+}
