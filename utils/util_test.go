@@ -144,3 +144,52 @@ func TestIsValidHTML(t *testing.T) {
 		})
 	}
 }
+
+func TestParseSize(t *testing.T) {
+	tests := []struct {
+		name string // description of this test case
+		// Named input parameters for target function.
+		sizeStr string
+		want    int64
+	}{
+		{
+			name:    "Bytes without space",
+			sizeStr: "512B",
+			want:    512,
+		},
+		{
+			name:    "Kilobytes with space",
+			sizeStr: "1.5 KB",
+			want:    1536,
+		},
+		{
+			name:    "Megabytes with comma",
+			sizeStr: "2,75 MB",
+			want:    2883584,
+		},
+		{
+			name:    "Gigabytes without space",
+			sizeStr: "3GB",
+			want:    3221225472,
+		},
+		{
+			name:    "Terabytes with space",
+			sizeStr: "0.5 TB",
+			want:    549755813888,
+		},
+		{
+			name:    "Invalid format",
+			sizeStr: "100 XB",
+			want:    0,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := utils.ParseSize(tt.sizeStr)
+
+			if got != tt.want {
+				t.Errorf("ParseSize() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

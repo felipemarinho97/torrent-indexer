@@ -102,8 +102,9 @@ func (i *Indexer) HandlerStarckFilmesIndexer(w http.ResponseWriter, r *http.Requ
 
 	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(Response{
-		Results: postProcessedTorrents,
-		Count:   len(postProcessedTorrents),
+		Results:      postProcessedTorrents,
+		Count:        len(postProcessedTorrents),
+		IndexedCount: len(indexedTorrents),
 	})
 	if err != nil {
 		logging.Error().Err(err).Msg("Failed to encode response")

@@ -32,8 +32,9 @@ type IndexerMeta struct {
 }
 
 type Response struct {
-	Results []schema.IndexedTorrent `json:"results"`
-	Count   int                     `json:"count"`
+	Results      []schema.IndexedTorrent `json:"results"`
+	Count        int                     `json:"count"`
+	IndexedCount int                     `json:"indexed_count,omitempty"`
 }
 
 type PostProcessorFunc func(*Indexer, *http.Request, []schema.IndexedTorrent) []schema.IndexedTorrent
@@ -44,7 +45,9 @@ var GlobalPostProcessors = []PostProcessorFunc{
 	CleanupTitleWebsites,   // Remove website names from titles
 	FallbackPostTitle,      // Fallback to original title if empty
 	AppendAudioTags,        // Add (brazilian, eng, etc.) audio tags to titles
+	ApplySorting,           // Sort results based on sortBy and sortDirection params
 	SendToSearchIndexer,    // Send indexed torrents to Meilisearch
+	ApplyLimit,             // Limit number of results based on query param
 }
 
 type IndexersConfig struct {
@@ -86,6 +89,9 @@ func HandlerIndex(w http.ResponseWriter, r *http.Request) {
 						"q":              "search query",
 						"page":           "page number",
 						"filter_results": "if results with similarity equals to zero should be filtered (true/false)",
+						"limit":          "maximum number of results to return",
+						"sortBy":         "sort by field (title, original_title, year, date, seed_count, leech_count, size, similarity)",
+						"sortDirection":  "sort direction (asc or desc, default: desc)",
 					},
 				},
 			},
@@ -97,38 +103,50 @@ func HandlerIndex(w http.ResponseWriter, r *http.Request) {
 						"q":              "search query",
 						"page":           "page number",
 						"filter_results": "if results with similarity equals to zero should be filtered (true/false)",
+						"limit":          "maximum number of results to return",
+						"sortBy":         "sort by field (title, original_title, year, date, seed_count, leech_count, size, similarity)",
+						"sortDirection":  "sort direction (asc or desc, default: desc)",
 					}},
 			},
 			"/indexers/torrent-dos-filmes": []map[string]interface{}{
 				{
 					"method":      "GET",
-					"page":        "page number",
 					"description": "Indexer for Torrent dos Filmes",
 					"query_params": map[string]string{
 						"q":              "search query",
+						"page":           "page number",
 						"filter_results": "if results with similarity equals to zero should be filtered (true/false)",
+						"limit":          "maximum number of results to return",
+						"sortBy":         "sort by field (title, original_title, year, date, seed_count, leech_count, size, similarity)",
+						"sortDirection":  "sort direction (asc or desc, default: desc)",
 					},
 				},
 			},
 			"/indexers/filme_torrent": []map[string]interface{}{
 				{
 					"method":      "GET",
-					"page":        "page number",
 					"description": "Indexer for Filme Torrent",
 					"query_params": map[string]string{
 						"q":              "search query",
+						"page":           "page number",
 						"filter_results": "if results with similarity equals to zero should be filtered (true/false)",
+						"limit":          "maximum number of results to return",
+						"sortBy":         "sort by field (title, original_title, year, date, seed_count, leech_count, size, similarity)",
+						"sortDirection":  "sort direction (asc or desc, default: desc)",
 					},
 				},
 			},
 			"/indexers/starck-filmes": []map[string]interface{}{
 				{
 					"method":      "GET",
-					"page":        "page number",
 					"description": "Indexer for Starck Filmes",
 					"query_params": map[string]string{
 						"q":              "search query",
+						"page":           "page number",
 						"filter_results": "if results with similarity equals to zero should be filtered (true/false)",
+						"limit":          "maximum number of results to return",
+						"sortBy":         "sort by field (title, original_title, year, date, seed_count, leech_count, size, similarity)",
+						"sortDirection":  "sort direction (asc or desc, default: desc)",
 					},
 				},
 			},
@@ -140,6 +158,9 @@ func HandlerIndex(w http.ResponseWriter, r *http.Request) {
 						"q":              "search query",
 						"page":           "page number",
 						"filter_results": "if results with similarity equals to zero should be filtered (true/false)",
+						"limit":          "maximum number of results to return",
+						"sortBy":         "sort by field (title, original_title, year, date, seed_count, leech_count, size, similarity)",
+						"sortDirection":  "sort direction (asc or desc, default: desc)",
 					},
 				},
 			},
@@ -151,6 +172,9 @@ func HandlerIndex(w http.ResponseWriter, r *http.Request) {
 						"q":              "search query",
 						"page":           "page number",
 						"filter_results": "if results with similarity equals to zero should be filtered (true/false)",
+						"limit":          "maximum number of results to return",
+						"sortBy":         "sort by field (title, original_title, year, date, seed_count, leech_count, size, similarity)",
+						"sortDirection":  "sort direction (asc or desc, default: desc)",
 					},
 				},
 			},
@@ -171,7 +195,8 @@ func HandlerIndex(w http.ResponseWriter, r *http.Request) {
 					"method":      "GET",
 					"description": "Search for cached torrents across all indexers",
 					"query_params": map[string]string{
-						"q": "search query",
+						"q":     "search query",
+						"limit": "maximum number of results to return (default: 10)",
 					},
 				},
 			},

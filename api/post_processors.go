@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/felipemarinho97/torrent-indexer/logging"
@@ -123,6 +124,82 @@ func AddSimilarityCheck(i *Indexer, r *http.Request, torrents []schema.IndexedTo
 	// sort by similarity
 	slices.SortFunc(torrents, func(i, j schema.IndexedTorrent) int {
 		return int((j.Similarity - i.Similarity) * 1000)
+	})
+
+	return torrents
+}
+
+// ApplyLimit limits the number of results based on the "limit" query parameter
+func ApplyLimit(_ *Indexer, r *http.Request, torrents []schema.IndexedTorrent) []schema.IndexedTorrent {
+	limitStr := r.URL.Query().Get("limit")
+	if limitStr == "" {
+		return torrents
+	}
+
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil || limit <= 0 {
+		return torrents
+	}
+
+	if len(torrents) > limit {
+		return torrents[:limit]
+	}
+
+	return torrents
+}
+
+// ApplySorting sorts the results based on "sortBy" and "sortDirection" query parameters
+func ApplySorting(_ *Indexer, r *http.Request, torrents []schema.IndexedTorrent) []schema.IndexedTorrent {
+	sortBy := r.URL.Query().Get("sortBy")
+	if sortBy == "" {
+		return torrents
+	}
+
+	sortDirection := r.URL.Query().Get("sortDirection")
+	ascending := sortDirection == "asc"
+
+	slices.SortFunc(torrents, func(i, j schema.IndexedTorrent) int {
+		var cmp int
+		switch sortBy {
+		case "title":
+			cmp = strings.Compare(strings.ToLower(i.Title), strings.ToLower(j.Title))
+		case "original_title":
+			cmp = strings.Compare(strings.ToLower(i.OriginalTitle), strings.ToLower(j.OriginalTitle))
+		case "year":
+			cmp = strings.Compare(i.Year, j.Year)
+		case "date":
+			if i.Date.Before(j.Date) {
+				cmp = -1
+			} else if i.Date.After(j.Date) {
+				cmp = 1
+			}
+		case "seed_count", "seeders":
+			cmp = i.SeedCount - j.SeedCount
+		case "leech_count", "leechers":
+			cmp = i.LeechCount - j.LeechCount
+		case "size":
+			// Parse size strings to bytes for accurate comparison
+			iBytes := utils.ParseSize(i.Size)
+			jBytes := utils.ParseSize(j.Size)
+			if iBytes < jBytes {
+				cmp = -1
+			} else if iBytes > jBytes {
+				cmp = 1
+			}
+		case "similarity":
+			if i.Similarity < j.Similarity {
+				cmp = -1
+			} else if i.Similarity > j.Similarity {
+				cmp = 1
+			}
+		default:
+			return 0
+		}
+
+		if ascending {
+			return cmp
+		}
+		return -cmp
 	})
 
 	return torrents
