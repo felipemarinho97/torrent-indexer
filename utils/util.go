@@ -162,6 +162,7 @@ func IsVideoFile(filename string) bool {
 	videoExtensions := []string{".mp4", ".mkv", ".avi", ".mov", ".wmv", ".flv", ".webm", ".mpeg", ".mpg", ".m4v", ".3gp", ".ts"}
 	for _, ext := range videoExtensions {
 		if strings.HasSuffix(lowerFilename, ext) {
+
 			return true
 		}
 	}
