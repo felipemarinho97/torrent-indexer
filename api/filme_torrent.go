@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"html"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -20,7 +22,7 @@ import (
 
 var filme_torrent = IndexerMeta{
 	Label:       "filme_torrent",
-	URL:         "https://www.filmetorrent.org/",
+	URL:         "https://limonfilmes.org/",
 	SearchURL:   "?s=",
 	PagePattern: "page/%s",
 }
@@ -81,6 +83,8 @@ func (i *Indexer) HandlerFilmeTorrentIndexer(w http.ResponseWriter, r *http.Requ
 		}
 	})
 
+	logging.Debug().Int("links_found", len(links)).Str("url", targetURL).Msg("Links indexed")
+
 	// if no links were indexed, expire the document in cache
 	if len(links) == 0 {
 		_ = i.requester.ExpireDocument(ctx, targetURL)
@@ -132,7 +136,7 @@ func getTorrentsFilmeTorrent(ctx context.Context, i *Indexer, link, referer stri
 
 	// Find magnet links - they might be base64 encoded in the href
 	var magnetLinks []string
-	textContent.Find("a.customButton, a[href*='encurta'], a[href^='magnet']").Each(func(i int, s *goquery.Selection) {
+	textContent.Find("a.customButton, a[href*='encurta'], a[href^='magnet']").Each(func(_ int, s *goquery.Selection) {
 		href, exists := s.Attr("href")
 		if !exists {
 			return
@@ -141,6 +145,30 @@ func getTorrentsFilmeTorrent(ctx context.Context, i *Indexer, link, referer stri
 		// Check if it's a direct magnet link
 		if strings.HasPrefix(href, "magnet:") {
 			magnetLinks = append(magnetLinks, href)
+			return
+		}
+
+		// Check if it's an vialink shortened link
+		if strings.Contains(href, "protlink") {
+			// get the protlink value
+			u, err := url.Parse(href)
+			if err != nil {
+				logging.Debug().Err(err).Str("href", href).Msg("Failed to parse URL")
+				return
+			}
+			protlink := u.Query().Get("protlink")
+			if protlink == "" {
+				return
+			}
+			encurtaLink := fmt.Sprintf("https://vialink.sbs/encurtador/?prot=%s", protlink)
+			shortenedMagnet, err := resolveVialinkShortenedLink(ctx, i, encurtaLink)
+			if err != nil {
+				logging.Debug().Err(err).Str("href", href).Msg("Failed to resolve vialink shortened link")
+				return
+			}
+			if strings.HasPrefix(shortenedMagnet, "magnet:") {
+				magnetLinks = append(magnetLinks, shortenedMagnet)
+			}
 			return
 		}
 
@@ -264,4 +292,38 @@ func getTorrentsFilmeTorrent(ctx context.Context, i *Indexer, link, referer stri
 	}
 
 	return indexedTorrents, nil
+}
+
+func resolveVialinkShortenedLink(ctx context.Context, i *Indexer, shortenedURL string) (string, error) {
+	resp, err := i.requester.GetDocument(ctx, shortenedURL)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Close()
+
+	bodyBytes, err := io.ReadAll(resp)
+	if err != nil {
+		return "", err
+	}
+	bodyString := string(bodyBytes)
+
+	// Look for the magnet link in the response body
+	startIndex := strings.Index(bodyString, "magnet:")
+	if startIndex == -1 {
+		return "", fmt.Errorf("magnet link not found in shortened link response")
+	}
+
+	// Find the end of the magnet link
+	endIndex := strings.IndexAny(bodyString[startIndex:], "\"'<> \n")
+	if endIndex == -1 {
+		endIndex = len(bodyString)
+	} else {
+		endIndex += startIndex
+	}
+
+	magnetLink := bodyString[startIndex:endIndex]
+
+	// decode any HTML entities
+	magnetLink = html.UnescapeString(magnetLink)
+	return magnetLink, nil
 }
