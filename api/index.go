@@ -195,7 +195,8 @@ func HandlerIndex(w http.ResponseWriter, r *http.Request) {
 					"method":      "GET",
 					"description": "Search for cached torrents across all indexers",
 					"query_params": map[string]string{
-						"q": "search query",
+						"q":     "search query",
+						"limit": "maximum number of results to return (default: 10)",
 					},
 				},
 			},
