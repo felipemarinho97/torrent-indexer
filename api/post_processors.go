@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/felipemarinho97/torrent-indexer/logging"
@@ -124,6 +125,25 @@ func AddSimilarityCheck(i *Indexer, r *http.Request, torrents []schema.IndexedTo
 	slices.SortFunc(torrents, func(i, j schema.IndexedTorrent) int {
 		return int((j.Similarity - i.Similarity) * 1000)
 	})
+
+	return torrents
+}
+
+// ApplyLimit limits the number of results based on the "limit" query parameter
+func ApplyLimit(_ *Indexer, r *http.Request, torrents []schema.IndexedTorrent) []schema.IndexedTorrent {
+	limitStr := r.URL.Query().Get("limit")
+	if limitStr == "" {
+		return torrents
+	}
+
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil || limit <= 0 {
+		return torrents
+	}
+
+	if len(torrents) > limit {
+		return torrents[:limit]
+	}
 
 	return torrents
 }

@@ -32,8 +32,9 @@ type IndexerMeta struct {
 }
 
 type Response struct {
-	Results []schema.IndexedTorrent `json:"results"`
-	Count   int                     `json:"count"`
+	Results      []schema.IndexedTorrent `json:"results"`
+	Count        int                     `json:"count"`
+	IndexedCount int                     `json:"indexed_count,omitempty"`
 }
 
 type PostProcessorFunc func(*Indexer, *http.Request, []schema.IndexedTorrent) []schema.IndexedTorrent
@@ -45,6 +46,7 @@ var GlobalPostProcessors = []PostProcessorFunc{
 	FallbackPostTitle,      // Fallback to original title if empty
 	AppendAudioTags,        // Add (brazilian, eng, etc.) audio tags to titles
 	SendToSearchIndexer,    // Send indexed torrents to Meilisearch
+	ApplyLimit,             // Limit number of results based on query param
 }
 
 type IndexersConfig struct {
@@ -86,6 +88,7 @@ func HandlerIndex(w http.ResponseWriter, r *http.Request) {
 						"q":              "search query",
 						"page":           "page number",
 						"filter_results": "if results with similarity equals to zero should be filtered (true/false)",
+						"limit":          "maximum number of results to return",
 					},
 				},
 			},
@@ -97,38 +100,42 @@ func HandlerIndex(w http.ResponseWriter, r *http.Request) {
 						"q":              "search query",
 						"page":           "page number",
 						"filter_results": "if results with similarity equals to zero should be filtered (true/false)",
+						"limit":          "maximum number of results to return",
 					}},
 			},
 			"/indexers/torrent-dos-filmes": []map[string]interface{}{
 				{
 					"method":      "GET",
-					"page":        "page number",
 					"description": "Indexer for Torrent dos Filmes",
 					"query_params": map[string]string{
 						"q":              "search query",
+						"page":           "page number",
 						"filter_results": "if results with similarity equals to zero should be filtered (true/false)",
+						"limit":          "maximum number of results to return",
 					},
 				},
 			},
 			"/indexers/filme_torrent": []map[string]interface{}{
 				{
 					"method":      "GET",
-					"page":        "page number",
 					"description": "Indexer for Filme Torrent",
 					"query_params": map[string]string{
 						"q":              "search query",
+						"page":           "page number",
 						"filter_results": "if results with similarity equals to zero should be filtered (true/false)",
+						"limit":          "maximum number of results to return",
 					},
 				},
 			},
 			"/indexers/starck-filmes": []map[string]interface{}{
 				{
 					"method":      "GET",
-					"page":        "page number",
 					"description": "Indexer for Starck Filmes",
 					"query_params": map[string]string{
 						"q":              "search query",
+						"page":           "page number",
 						"filter_results": "if results with similarity equals to zero should be filtered (true/false)",
+						"limit":          "maximum number of results to return",
 					},
 				},
 			},
@@ -140,6 +147,7 @@ func HandlerIndex(w http.ResponseWriter, r *http.Request) {
 						"q":              "search query",
 						"page":           "page number",
 						"filter_results": "if results with similarity equals to zero should be filtered (true/false)",
+						"limit":          "maximum number of results to return",
 					},
 				},
 			},
@@ -151,6 +159,7 @@ func HandlerIndex(w http.ResponseWriter, r *http.Request) {
 						"q":              "search query",
 						"page":           "page number",
 						"filter_results": "if results with similarity equals to zero should be filtered (true/false)",
+						"limit":          "maximum number of results to return",
 					},
 				},
 			},

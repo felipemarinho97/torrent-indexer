@@ -116,8 +116,9 @@ func (i *Indexer) HandlerManualIndexer(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(Response{
-		Results: indexedTorrents,
-		Count:   len(indexedTorrents),
+		Results:      indexedTorrents,
+		Count:        len(indexedTorrents),
+		IndexedCount: len(indexedTorrents),
 	})
 	if err != nil {
 		logging.Error().Err(err).Msg("Failed to encode response")
