@@ -3,6 +3,7 @@ package utils
 import (
 	"fmt"
 	"regexp"
+	"strings"
 
 	"github.com/felipemarinho97/torrent-indexer/logging"
 )
@@ -154,4 +155,15 @@ func ParseSize(sizeStr string) int64 {
 	}
 
 	return int64(value * float64(multiplier))
+}
+
+func IsVideoFile(filename string) bool {
+	lowerFilename := strings.ToLower(filename)
+	videoExtensions := []string{".mp4", ".mkv", ".avi", ".mov", ".wmv", ".flv", ".webm", ".mpeg", ".mpg", ".m4v", ".3gp", ".ts"}
+	for _, ext := range videoExtensions {
+		if strings.HasSuffix(lowerFilename, ext) {
+			return true
+		}
+	}
+	return false
 }
