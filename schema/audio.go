@@ -9,6 +9,7 @@ const (
 	AudioPortuguese2 = "Portugues"
 	AudioPortuguese3 = "PT-BR"
 	AudioPortuguese4 = "Dublado"
+	AudioPortuguese5 = "Nacional"
 	AudioEnglish     = "Inglês"
 	AudioEnglish2    = "Ingles"
 	AudioSpanish     = "Espanhol"
@@ -72,6 +73,7 @@ var AudioList = []Audio{
 	AudioPortuguese2,
 	AudioPortuguese3,
 	AudioPortuguese4,
+	AudioPortuguese5,
 	AudioEnglish,
 	AudioEnglish2,
 	AudioSpanish,
@@ -152,6 +154,8 @@ func (a Audio) toTag() string {
 	case AudioPortuguese3:
 		return "brazilian"
 	case AudioPortuguese4:
+		return "brazilian"
+	case AudioPortuguese5:
 		return "brazilian"
 	case AudioEnglish:
 		return "eng"
