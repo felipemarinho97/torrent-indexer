@@ -137,7 +137,7 @@ func getTorrentsFilmeTorrent(ctx context.Context, i *Indexer, link, referer stri
 
 	// Find magnet links - they might be base64 encoded in the href
 	var magnetLinks []string
-	textContent.Find("a.customButton, a[href*='encurta'], a[href^='magnet']").Each(func(_ int, s *goquery.Selection) {
+	textContent.Find("a:contains('Magnet'), a:contains('Download'), a.customButton, a[href^='magnet']").Each(func(_ int, s *goquery.Selection) {
 		href, exists := s.Attr("href")
 		if !exists {
 			return
@@ -149,50 +149,33 @@ func getTorrentsFilmeTorrent(ctx context.Context, i *Indexer, link, referer stri
 			return
 		}
 
-		// Check if it's an vialink shortened link
-		if strings.Contains(href, "protlink") {
-			// get the protlink value
-			u, err := url.Parse(href)
-			if err != nil {
-				logging.Debug().Err(err).Str("href", href).Msg("Failed to parse URL")
-				return
-			}
-			protlink := u.Query().Get("protlink")
-			if protlink == "" {
-				return
-			}
-			encurtaLink := fmt.Sprintf("https://vialink.sbs/encurtador/?prot=%s", protlink)
-			shortenedMagnet, err := resolveVialinkShortenedLink(ctx, i, encurtaLink)
-			if err != nil {
-				logging.Debug().Err(err).Str("href", href).Msg("Failed to resolve vialink shortened link")
-				return
-			}
-			if strings.HasPrefix(shortenedMagnet, "magnet:") {
-				magnetLinks = append(magnetLinks, shortenedMagnet)
-			}
+		// Parse the URL to extract parameters
+		u, err := url.Parse(href)
+		if err != nil {
+			logging.Debug().Err(err).Str("href", href).Msg("Failed to parse URL")
 			return
 		}
 
-		// Check if it's an encoded link with token parameter
-		if strings.Contains(href, "token=") {
-			// Extract the token parameter
-			u, err := url.Parse(href)
-			if err != nil {
-				logging.Debug().Err(err).Str("href", href).Msg("Failed to parse URL")
-				return
-			}
+		// Iterate over all query parameters to find potential magnet links or hashes
+		for _, values := range u.Query() {
+			for _, value := range values {
+				if value == "" {
+					continue
+				}
 
-			token := u.Query().Get("token")
-			if token != "" {
-				// Decode the base64 token
-				decodedMagnet, err := utils.Base64Decode(token)
-				if err != nil {
-					logging.Debug().Err(err).Str("token", token).Msg("Failed to decode base64 token")
+				// 1. Try to decode as base64 magnet link
+				decodedMagnet, err := utils.Base64Decode(value)
+				if err == nil && strings.HasPrefix(decodedMagnet, "magnet:") {
+					magnetLinks = append(magnetLinks, decodedMagnet)
 					return
 				}
 
-				if strings.HasPrefix(decodedMagnet, "magnet:") {
-					magnetLinks = append(magnetLinks, decodedMagnet)
+				// 2. Try to resolve as vialink shortened link
+				encurtaLink := fmt.Sprintf("https://vialink.sbs/encurtador/?prot=%s", value)
+				shortenedMagnet, err := resolveVialinkShortenedLink(ctx, i, encurtaLink)
+				if err == nil && strings.HasPrefix(shortenedMagnet, "magnet:") {
+					magnetLinks = append(magnetLinks, shortenedMagnet)
+					return
 				}
 			}
 		}
