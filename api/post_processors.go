@@ -225,7 +225,7 @@ func FilterBy(_ *Indexer, r *http.Request, torrents []schema.IndexedTorrent) []s
 	// Parse filter parameters
 	audioParam := r.URL.Query().Get("audio")
 	yearParam := r.URL.Query().Get("year")
-	imdbIdParam := r.URL.Query().Get("imdbId")
+	imdbParam := r.URL.Query().Get("imdb")
 
 	var requestedAudioTags []string
 	if audioParam != "" {
@@ -238,7 +238,7 @@ func FilterBy(_ *Indexer, r *http.Request, torrents []schema.IndexedTorrent) []s
 	}
 
 	// If no filters are active, return original list
-	if len(requestedAudioTags) == 0 && yearParam == "" && imdbIdParam == "" {
+	if len(requestedAudioTags) == 0 && yearParam == "" && imdbParam == "" {
 		return torrents
 	}
 
@@ -265,8 +265,8 @@ func FilterBy(_ *Indexer, r *http.Request, torrents []schema.IndexedTorrent) []s
 		}
 
 		// Filter by IMDB ID
-		if imdbIdParam != "" {
-			if !strings.Contains(it.IMDB, imdbIdParam) {
+		if imdbParam != "" {
+			if !strings.Contains(it.IMDB, imdbParam) {
 				return false
 			}
 		}

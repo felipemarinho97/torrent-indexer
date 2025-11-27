@@ -76,6 +76,19 @@ func NewIndexers(
 
 func HandlerIndex(w http.ResponseWriter, r *http.Request) {
 	currentTime := time.Now().Format(time.RFC850)
+
+	commonQueryParams := map[string]string{
+		"q":              "search query",
+		"page":           "page number",
+		"filter_results": "if results with similarity equals to zero should be filtered (true/false)",
+		"limit":          "maximum number of results to return",
+		"sortBy":         "sort by field (title, original_title, year, date, seed_count, leech_count, size, similarity)",
+		"sortDirection":  "sort direction (asc or desc, default: desc)",
+		"audio":          "filter by audio languages (comma separated, e.g. por,eng,brazilian)",
+		"year":           "filter by year (e.g. 2020)",
+		"imdb":           "filter by imdb ID (e.g. tt1234567)",
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	err := json.NewEncoder(w).Encode(map[string]interface{}{
@@ -84,99 +97,51 @@ func HandlerIndex(w http.ResponseWriter, r *http.Request) {
 		"endpoints": map[string]interface{}{
 			"/indexers/comando_torrents": []map[string]interface{}{
 				{
-					"method":      "GET",
-					"description": "Indexer for comando torrents",
-					"query_params": map[string]string{
-						"q":              "search query",
-						"page":           "page number",
-						"filter_results": "if results with similarity equals to zero should be filtered (true/false)",
-						"limit":          "maximum number of results to return",
-						"sortBy":         "sort by field (title, original_title, year, date, seed_count, leech_count, size, similarity)",
-						"sortDirection":  "sort direction (asc or desc, default: desc)",
-					},
+					"method":       "GET",
+					"description":  "Indexer for comando torrents",
+					"query_params": commonQueryParams,
 				},
 			},
 			"/indexers/bludv": []map[string]interface{}{
 				{
-					"method":      "GET",
-					"description": "Indexer for bludv",
-					"query_params": map[string]string{
-						"q":              "search query",
-						"page":           "page number",
-						"filter_results": "if results with similarity equals to zero should be filtered (true/false)",
-						"limit":          "maximum number of results to return",
-						"sortBy":         "sort by field (title, original_title, year, date, seed_count, leech_count, size, similarity)",
-						"sortDirection":  "sort direction (asc or desc, default: desc)",
-					}},
+					"method":       "GET",
+					"description":  "Indexer for bludv",
+					"query_params": commonQueryParams,
+				},
 			},
 			"/indexers/torrent-dos-filmes": []map[string]interface{}{
 				{
-					"method":      "GET",
-					"description": "Indexer for Torrent dos Filmes",
-					"query_params": map[string]string{
-						"q":              "search query",
-						"page":           "page number",
-						"filter_results": "if results with similarity equals to zero should be filtered (true/false)",
-						"limit":          "maximum number of results to return",
-						"sortBy":         "sort by field (title, original_title, year, date, seed_count, leech_count, size, similarity)",
-						"sortDirection":  "sort direction (asc or desc, default: desc)",
-					},
+					"method":       "GET",
+					"description":  "Indexer for Torrent dos Filmes",
+					"query_params": commonQueryParams,
 				},
 			},
 			"/indexers/filme_torrent": []map[string]interface{}{
 				{
-					"method":      "GET",
-					"description": "Indexer for Filme Torrent",
-					"query_params": map[string]string{
-						"q":              "search query",
-						"page":           "page number",
-						"filter_results": "if results with similarity equals to zero should be filtered (true/false)",
-						"limit":          "maximum number of results to return",
-						"sortBy":         "sort by field (title, original_title, year, date, seed_count, leech_count, size, similarity)",
-						"sortDirection":  "sort direction (asc or desc, default: desc)",
-					},
+					"method":       "GET",
+					"description":  "Indexer for Filme Torrent",
+					"query_params": commonQueryParams,
 				},
 			},
 			"/indexers/starck-filmes": []map[string]interface{}{
 				{
-					"method":      "GET",
-					"description": "Indexer for Starck Filmes",
-					"query_params": map[string]string{
-						"q":              "search query",
-						"page":           "page number",
-						"filter_results": "if results with similarity equals to zero should be filtered (true/false)",
-						"limit":          "maximum number of results to return",
-						"sortBy":         "sort by field (title, original_title, year, date, seed_count, leech_count, size, similarity)",
-						"sortDirection":  "sort direction (asc or desc, default: desc)",
-					},
+					"method":       "GET",
+					"description":  "Indexer for Starck Filmes",
+					"query_params": commonQueryParams,
 				},
 			},
 			"/indexers/rede_torrent": []map[string]interface{}{
 				{
-					"method":      "GET",
-					"description": "Indexer for rede torrent",
-					"query_params": map[string]string{
-						"q":              "search query",
-						"page":           "page number",
-						"filter_results": "if results with similarity equals to zero should be filtered (true/false)",
-						"limit":          "maximum number of results to return",
-						"sortBy":         "sort by field (title, original_title, year, date, seed_count, leech_count, size, similarity)",
-						"sortDirection":  "sort direction (asc or desc, default: desc)",
-					},
+					"method":       "GET",
+					"description":  "Indexer for rede torrent",
+					"query_params": commonQueryParams,
 				},
 			},
 			"/indexers/vaca_torrent": []map[string]interface{}{
 				{
-					"method":      "GET",
-					"description": "Indexer for Vaca Torrent",
-					"query_params": map[string]string{
-						"q":              "search query",
-						"page":           "page number",
-						"filter_results": "if results with similarity equals to zero should be filtered (true/false)",
-						"limit":          "maximum number of results to return",
-						"sortBy":         "sort by field (title, original_title, year, date, seed_count, leech_count, size, similarity)",
-						"sortDirection":  "sort direction (asc or desc, default: desc)",
-					},
+					"method":       "GET",
+					"description":  "Indexer for Vaca Torrent",
+					"query_params": commonQueryParams,
 				},
 			},
 			"/indexers/manual": []map[string]interface{}{
