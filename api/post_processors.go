@@ -29,6 +29,16 @@ func AppendAudioTags(_ *Indexer, _ *http.Request, torrents []schema.IndexedTorre
 		}
 		// reprocess audio tags in case any middleware has changed the title
 		torrents[i].Audio = getAudioFromTitle(it.Title, it.Audio)
+
+		// for each video file, get audio ISO639-2 code and append to title
+		for _, file := range it.Files {
+			// check if file is a video
+			if !utils.IsVideoFile(file.Path) {
+				continue
+			}
+			torrents[i].Audio = getAudioFromTitle(file.Path, torrents[i].Audio)
+		}
+
 		torrents[i].Title = appendAudioISO639_2Code(torrents[i].Title, torrents[i].Audio)
 	}
 
@@ -76,6 +86,11 @@ func FullfilMissingMetadata(i *Indexer, r *http.Request, torrents []schema.Index
 					Size: utils.FormatBytes(file.Size),
 				}
 			}
+		}
+
+		// If "date" is zero, use the date from metadata if available
+		if it.Date.IsZero() {
+			it.Date = m.CreatedAt
 		}
 
 		return []schema.IndexedTorrent{it}, nil
