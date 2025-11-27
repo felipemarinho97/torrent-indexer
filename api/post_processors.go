@@ -166,8 +166,14 @@ func ApplyLimit(_ *Indexer, r *http.Request, torrents []schema.IndexedTorrent) [
 // ApplySorting sorts the results based on "sortBy" and "sortDirection" query parameters
 func ApplySorting(_ *Indexer, r *http.Request, torrents []schema.IndexedTorrent) []schema.IndexedTorrent {
 	sortBy := r.URL.Query().Get("sortBy")
+	q := r.URL.Query().Get("q")
 	if sortBy == "" {
-		sortBy = "date"
+		if q == "" {
+			sortBy = "date"
+		} else {
+			// for search queries, default to sorting by similarity
+			sortBy = "similarity"
+		}
 	}
 
 	sortDirection := r.URL.Query().Get("sortDirection")
