@@ -137,7 +137,7 @@ func getTorrentsFilmeTorrent(ctx context.Context, i *Indexer, link, referer stri
 
 	// Find magnet links - they might be base64 encoded in the href
 	var magnetLinks []string
-	textContent.Find("a.customButton, a[href*='encurta'], a[href^='magnet']").Each(func(_ int, s *goquery.Selection) {
+	textContent.Find("a:contains('Magnet'), a:contains('Download'), a.customButton, a[href^='magnet']").Each(func(_ int, s *goquery.Selection) {
 		href, exists := s.Attr("href")
 		if !exists {
 			return
@@ -149,52 +149,46 @@ func getTorrentsFilmeTorrent(ctx context.Context, i *Indexer, link, referer stri
 			return
 		}
 
-		// Check if it's an vialink shortened link
-		if strings.Contains(href, "protlink") {
-			// get the protlink value
-			u, err := url.Parse(href)
-			if err != nil {
-				logging.Debug().Err(err).Str("href", href).Msg("Failed to parse URL")
-				return
-			}
-			protlink := u.Query().Get("protlink")
-			if protlink == "" {
-				return
-			}
-			encurtaLink := fmt.Sprintf("https://vialink.sbs/encurtador/?prot=%s", protlink)
-			shortenedMagnet, err := resolveVialinkShortenedLink(ctx, i, encurtaLink)
-			if err != nil {
-				logging.Debug().Err(err).Str("href", href).Msg("Failed to resolve vialink shortened link")
-				return
-			}
-			if strings.HasPrefix(shortenedMagnet, "magnet:") {
-				magnetLinks = append(magnetLinks, shortenedMagnet)
-			}
+		// Parse the URL to extract parameters
+		u, err := url.Parse(href)
+		if err != nil {
+			logging.Debug().Err(err).Str("href", href).Msg("Failed to parse URL")
 			return
 		}
 
-		// Check if it's an encoded link with token parameter
-		if strings.Contains(href, "token=") {
-			// Extract the token parameter
-			u, err := url.Parse(href)
-			if err != nil {
-				logging.Debug().Err(err).Str("href", href).Msg("Failed to parse URL")
-				return
-			}
+		// Iterate over all query parameters to find potential magnet links or hashes
+		for k, values := range u.Query() {
+			for _, value := range values {
+				if value == "" {
+					continue
+				}
 
-			token := u.Query().Get("token")
-			if token != "" {
-				// Decode the base64 token
-				decodedMagnet, err := utils.Base64Decode(token)
-				if err != nil {
-					logging.Debug().Err(err).Str("token", token).Msg("Failed to decode base64 token")
+				// 1. Try to decode as base64 magnet link
+				decodedMagnet, err := utils.Base64Decode(value)
+				if err == nil && strings.HasPrefix(decodedMagnet, "magnet:") {
+					magnetLinks = append(magnetLinks, decodedMagnet)
 					return
 				}
 
-				if strings.HasPrefix(decodedMagnet, "magnet:") {
-					magnetLinks = append(magnetLinks, decodedMagnet)
+				// 2. Try to resolve as vialink shortened link if key is protlink
+				if k != "protlink" {
+					continue
 				}
+				encurtaLink := fmt.Sprintf("https://vialink.sbs/encurtador/?prot=%s", value)
+				shortenedMagnet, err := resolveVialinkShortenedLink(ctx, i, encurtaLink)
+				if err == nil && strings.HasPrefix(shortenedMagnet, "magnet:") {
+					magnetLinks = append(magnetLinks, shortenedMagnet)
+					return
+				}
+
 			}
+		}
+
+		// If no magnet link found yet, just resolve the href as a shortened link
+		shortenedMagnet, err := resolveVialinkShortenedLink(ctx, i, href)
+		if err == nil && strings.HasPrefix(shortenedMagnet, "magnet:") {
+			magnetLinks = append(magnetLinks, shortenedMagnet)
+			return
 		}
 	})
 
@@ -296,6 +290,13 @@ func getTorrentsFilmeTorrent(ctx context.Context, i *Indexer, link, referer stri
 }
 
 func resolveVialinkShortenedLink(ctx context.Context, i *Indexer, shortenedURL string) (string, error) {
+	// Check cache first
+	cacheKey := fmt.Sprintf("shortened_link:%s", shortenedURL)
+	cached, err := i.redis.Get(ctx, cacheKey)
+	if err == nil {
+		return string(cached), nil
+	}
+
 	resp, err := i.requester.GetDocument(ctx, shortenedURL)
 	if err != nil {
 		return "", err
@@ -326,5 +327,11 @@ func resolveVialinkShortenedLink(ctx context.Context, i *Indexer, shortenedURL s
 
 	// decode any HTML entities
 	magnetLink = html.UnescapeString(magnetLink)
+
+	// Cache the result
+	if err := i.redis.Set(ctx, cacheKey, []byte(magnetLink)); err != nil {
+		logging.Error().Err(err).Str("key", cacheKey).Msg("Failed to cache shortened link")
+	}
+
 	return magnetLink, nil
 }
