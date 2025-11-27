@@ -234,6 +234,8 @@ func getTorrentsVacaTorrent(ctx context.Context, i *Indexer, link, referer strin
 	var season string
 	var date time.Time
 
+	date = getPublishedDateFromMeta(doc)
+
 	doc.Find(".col-left ul li, .content p").Each(func(_ int, s *goquery.Selection) {
 		text := s.Text()
 		html, _ := s.Html()
