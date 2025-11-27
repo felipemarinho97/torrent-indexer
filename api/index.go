@@ -47,6 +47,7 @@ var GlobalPostProcessors = []PostProcessorFunc{
 	AppendAudioTags,        // Add (brazilian, eng, etc.) audio tags to titles
 	ApplySorting,           // Sort results based on sortBy and sortDirection params
 	SendToSearchIndexer,    // Send indexed torrents to Meilisearch
+	FilterBy,               // Filter results based on query params (audio, etc.)
 	ApplyLimit,             // Limit number of results based on query param
 }
 

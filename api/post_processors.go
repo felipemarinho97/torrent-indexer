@@ -219,3 +219,41 @@ func ApplySorting(_ *Indexer, r *http.Request, torrents []schema.IndexedTorrent)
 
 	return torrents
 }
+
+// FilterBy filters the results based on various query parameters
+func FilterBy(_ *Indexer, r *http.Request, torrents []schema.IndexedTorrent) []schema.IndexedTorrent {
+	// Parse filter parameters
+	audioParam := r.URL.Query().Get("audio")
+	var requestedAudioTags []string
+	if audioParam != "" {
+		parts := strings.Split(audioParam, ",")
+		for _, p := range parts {
+			if t := strings.TrimSpace(strings.ToLower(p)); t != "" {
+				requestedAudioTags = append(requestedAudioTags, t)
+			}
+		}
+	}
+
+	// If no filters are active, return original list
+	if len(requestedAudioTags) == 0 {
+		return torrents
+	}
+
+	return utils.Filter(torrents, func(it schema.IndexedTorrent) bool {
+		// Filter by Audio
+		if len(requestedAudioTags) > 0 {
+			hasAudio := false
+			for _, audio := range it.Audio {
+				if slices.Contains(requestedAudioTags, strings.ToLower(audio.String())) {
+					hasAudio = true
+					break
+				}
+			}
+			if !hasAudio {
+				return false
+			}
+		}
+
+		return true
+	})
+}
