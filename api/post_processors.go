@@ -224,6 +224,9 @@ func ApplySorting(_ *Indexer, r *http.Request, torrents []schema.IndexedTorrent)
 func FilterBy(_ *Indexer, r *http.Request, torrents []schema.IndexedTorrent) []schema.IndexedTorrent {
 	// Parse filter parameters
 	audioParam := r.URL.Query().Get("audio")
+	yearParam := r.URL.Query().Get("year")
+	imdbIdParam := r.URL.Query().Get("imdbId")
+
 	var requestedAudioTags []string
 	if audioParam != "" {
 		parts := strings.Split(audioParam, ",")
@@ -235,7 +238,7 @@ func FilterBy(_ *Indexer, r *http.Request, torrents []schema.IndexedTorrent) []s
 	}
 
 	// If no filters are active, return original list
-	if len(requestedAudioTags) == 0 {
+	if len(requestedAudioTags) == 0 && yearParam == "" && imdbIdParam == "" {
 		return torrents
 	}
 
@@ -250,6 +253,20 @@ func FilterBy(_ *Indexer, r *http.Request, torrents []schema.IndexedTorrent) []s
 				}
 			}
 			if !hasAudio {
+				return false
+			}
+		}
+
+		// Filter by Year
+		if yearParam != "" {
+			if it.Year != yearParam {
+				return false
+			}
+		}
+
+		// Filter by IMDB ID
+		if imdbIdParam != "" {
+			if !strings.Contains(it.IMDB, imdbIdParam) {
 				return false
 			}
 		}
