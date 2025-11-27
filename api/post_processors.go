@@ -167,7 +167,7 @@ func ApplyLimit(_ *Indexer, r *http.Request, torrents []schema.IndexedTorrent) [
 func ApplySorting(_ *Indexer, r *http.Request, torrents []schema.IndexedTorrent) []schema.IndexedTorrent {
 	sortBy := r.URL.Query().Get("sortBy")
 	if sortBy == "" {
-		return torrents
+		sortBy = "date"
 	}
 
 	sortDirection := r.URL.Query().Get("sortDirection")
