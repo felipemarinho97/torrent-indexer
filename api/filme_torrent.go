@@ -157,7 +157,7 @@ func getTorrentsFilmeTorrent(ctx context.Context, i *Indexer, link, referer stri
 		}
 
 		// Iterate over all query parameters to find potential magnet links or hashes
-		for _, values := range u.Query() {
+		for k, values := range u.Query() {
 			for _, value := range values {
 				if value == "" {
 					continue
@@ -170,14 +170,25 @@ func getTorrentsFilmeTorrent(ctx context.Context, i *Indexer, link, referer stri
 					return
 				}
 
-				// 2. Try to resolve as vialink shortened link
+				// 2. Try to resolve as vialink shortened link if key is protlink
+				if k != "protlink" {
+					continue
+				}
 				encurtaLink := fmt.Sprintf("https://vialink.sbs/encurtador/?prot=%s", value)
 				shortenedMagnet, err := resolveVialinkShortenedLink(ctx, i, encurtaLink)
 				if err == nil && strings.HasPrefix(shortenedMagnet, "magnet:") {
 					magnetLinks = append(magnetLinks, shortenedMagnet)
 					return
 				}
+
 			}
+		}
+
+		// If no magnet link found yet, just resolve the href as a shortened link
+		shortenedMagnet, err := resolveVialinkShortenedLink(ctx, i, href)
+		if err == nil && strings.HasPrefix(shortenedMagnet, "magnet:") {
+			magnetLinks = append(magnetLinks, shortenedMagnet)
+			return
 		}
 	})
 
@@ -279,6 +290,13 @@ func getTorrentsFilmeTorrent(ctx context.Context, i *Indexer, link, referer stri
 }
 
 func resolveVialinkShortenedLink(ctx context.Context, i *Indexer, shortenedURL string) (string, error) {
+	// Check cache first
+	cacheKey := fmt.Sprintf("shortened_link:%s", shortenedURL)
+	cached, err := i.redis.Get(ctx, cacheKey)
+	if err == nil {
+		return string(cached), nil
+	}
+
 	resp, err := i.requester.GetDocument(ctx, shortenedURL)
 	if err != nil {
 		return "", err
@@ -309,5 +327,11 @@ func resolveVialinkShortenedLink(ctx context.Context, i *Indexer, shortenedURL s
 
 	// decode any HTML entities
 	magnetLink = html.UnescapeString(magnetLink)
+
+	// Cache the result
+	if err := i.redis.Set(ctx, cacheKey, []byte(magnetLink)); err != nil {
+		logging.Error().Err(err).Str("key", cacheKey).Msg("Failed to cache shortened link")
+	}
+
 	return magnetLink, nil
 }
