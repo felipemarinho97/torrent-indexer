@@ -24,6 +24,8 @@ const (
 	AudioMandarin    = "Mandarim"
 	AudioMandarin2   = "Chinês"
 	AudioMandarin3   = "Chines"
+	AudioCantonese   = "Cantonês"
+	AudioCantonese2  = "Cantones"
 	AudioRussian     = "Russo"
 	AudioSwedish     = "Sueco"
 	AudioSwedish2    = "Suéco"
@@ -88,6 +90,8 @@ var AudioList = []Audio{
 	AudioMandarin,
 	AudioMandarin2,
 	AudioMandarin3,
+	AudioCantonese,
+	AudioCantonese2,
 	AudioRussian,
 	AudioSwedish,
 	AudioSwedish2,
@@ -185,6 +189,10 @@ func (a Audio) toTag() string {
 		return "chi"
 	case AudioMandarin3:
 		return "chi"
+	case AudioCantonese:
+		return "yue"
+	case AudioCantonese2:
+		return "yue"
 	case AudioRussian:
 		return "rus"
 	case AudioSwedish:
