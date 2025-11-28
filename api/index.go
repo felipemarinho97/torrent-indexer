@@ -47,6 +47,7 @@ var GlobalPostProcessors = []PostProcessorFunc{
 	AppendAudioTags,        // Add (brazilian, eng, etc.) audio tags to titles
 	ApplySorting,           // Sort results based on sortBy and sortDirection params
 	SendToSearchIndexer,    // Send indexed torrents to Meilisearch
+	FilterBy,               // Filter results based on query params (audio, etc.)
 	ApplyLimit,             // Limit number of results based on query param
 }
 
@@ -75,135 +76,90 @@ func NewIndexers(
 
 func HandlerIndex(w http.ResponseWriter, r *http.Request) {
 	currentTime := time.Now().Format(time.RFC850)
+
+	commonQueryParams := map[string]string{
+		"q":              "search query",
+		"page":           "page number",
+		"filter_results": "if results with similarity equals to zero should be filtered (true/false)",
+		"limit":          "maximum number of results to return",
+		"sortBy":         "sort by field (title, original_title, year, date, seed_count, leech_count, size, similarity)",
+		"sortDirection":  "sort direction (asc or desc, default: desc)",
+		"audio":          "filter by audio languages (comma separated, e.g. por,eng,brazilian)",
+		"year":           "filter by year (e.g. 2020)",
+		"imdb":           "filter by imdb ID (e.g. tt1234567) - this ONLY FILTERTS results, for searching by IMDB ID use the \"q\" parameter",
+	}
+
+	// Define structs for ordered JSON output
+	type EndpointDetail struct {
+		Method      string                 `json:"method"`
+		Description string                 `json:"description"`
+		QueryParams map[string]string      `json:"query_params,omitempty"`
+		Body        map[string]interface{} `json:"body,omitempty"`
+	}
+
+	type Endpoints struct {
+		IndexerGeneric []EndpointDetail `json:"/indexers/{indexer_name}"`
+		Manual         []EndpointDetail `json:"/indexers/manual"`
+		Search         []EndpointDetail `json:"/search"`
+		UI             []EndpointDetail `json:"/ui/"`
+	}
+
+	type RootResponse struct {
+		Time         string      `json:"time"`
+		Build        interface{} `json:"build"`
+		IndexerNames []string    `json:"indexer_names"`
+		Endpoints    Endpoints   `json:"endpoints"`
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	err := json.NewEncoder(w).Encode(map[string]interface{}{
-		"time":  currentTime,
-		"build": consts.GetBuildInfo(),
-		"endpoints": map[string]interface{}{
-			"/indexers/comando_torrents": []map[string]interface{}{
+	err := json.NewEncoder(w).Encode(RootResponse{
+		Time:  currentTime,
+		Build: consts.GetBuildInfo(),
+		IndexerNames: []string{
+			"comando_torrents",
+			"bludv",
+			"torrent-dos-filmes",
+			"filme_torrent",
+			"rede_torrent",
+			"vaca_torrent",
+			"starck-filmes",
+		},
+		Endpoints: Endpoints{
+			IndexerGeneric: []EndpointDetail{
 				{
-					"method":      "GET",
-					"description": "Indexer for comando torrents",
-					"query_params": map[string]string{
-						"q":              "search query",
-						"page":           "page number",
-						"filter_results": "if results with similarity equals to zero should be filtered (true/false)",
-						"limit":          "maximum number of results to return",
-						"sortBy":         "sort by field (title, original_title, year, date, seed_count, leech_count, size, similarity)",
-						"sortDirection":  "sort direction (asc or desc, default: desc)",
-					},
+					Method:      "GET",
+					Description: "Indexer expoint for the specified indexer",
+					QueryParams: commonQueryParams,
 				},
 			},
-			"/indexers/bludv": []map[string]interface{}{
+			Manual: []EndpointDetail{
 				{
-					"method":      "GET",
-					"description": "Indexer for bludv",
-					"query_params": map[string]string{
-						"q":              "search query",
-						"page":           "page number",
-						"filter_results": "if results with similarity equals to zero should be filtered (true/false)",
-						"limit":          "maximum number of results to return",
-						"sortBy":         "sort by field (title, original_title, year, date, seed_count, leech_count, size, similarity)",
-						"sortDirection":  "sort direction (asc or desc, default: desc)",
-					}},
-			},
-			"/indexers/torrent-dos-filmes": []map[string]interface{}{
-				{
-					"method":      "GET",
-					"description": "Indexer for Torrent dos Filmes",
-					"query_params": map[string]string{
-						"q":              "search query",
-						"page":           "page number",
-						"filter_results": "if results with similarity equals to zero should be filtered (true/false)",
-						"limit":          "maximum number of results to return",
-						"sortBy":         "sort by field (title, original_title, year, date, seed_count, leech_count, size, similarity)",
-						"sortDirection":  "sort direction (asc or desc, default: desc)",
-					},
-				},
-			},
-			"/indexers/filme_torrent": []map[string]interface{}{
-				{
-					"method":      "GET",
-					"description": "Indexer for Filme Torrent",
-					"query_params": map[string]string{
-						"q":              "search query",
-						"page":           "page number",
-						"filter_results": "if results with similarity equals to zero should be filtered (true/false)",
-						"limit":          "maximum number of results to return",
-						"sortBy":         "sort by field (title, original_title, year, date, seed_count, leech_count, size, similarity)",
-						"sortDirection":  "sort direction (asc or desc, default: desc)",
-					},
-				},
-			},
-			"/indexers/starck-filmes": []map[string]interface{}{
-				{
-					"method":      "GET",
-					"description": "Indexer for Starck Filmes",
-					"query_params": map[string]string{
-						"q":              "search query",
-						"page":           "page number",
-						"filter_results": "if results with similarity equals to zero should be filtered (true/false)",
-						"limit":          "maximum number of results to return",
-						"sortBy":         "sort by field (title, original_title, year, date, seed_count, leech_count, size, similarity)",
-						"sortDirection":  "sort direction (asc or desc, default: desc)",
-					},
-				},
-			},
-			"/indexers/rede_torrent": []map[string]interface{}{
-				{
-					"method":      "GET",
-					"description": "Indexer for rede torrent",
-					"query_params": map[string]string{
-						"q":              "search query",
-						"page":           "page number",
-						"filter_results": "if results with similarity equals to zero should be filtered (true/false)",
-						"limit":          "maximum number of results to return",
-						"sortBy":         "sort by field (title, original_title, year, date, seed_count, leech_count, size, similarity)",
-						"sortDirection":  "sort direction (asc or desc, default: desc)",
-					},
-				},
-			},
-			"/indexers/vaca_torrent": []map[string]interface{}{
-				{
-					"method":      "GET",
-					"description": "Indexer for Vaca Torrent",
-					"query_params": map[string]string{
-						"q":              "search query",
-						"page":           "page number",
-						"filter_results": "if results with similarity equals to zero should be filtered (true/false)",
-						"limit":          "maximum number of results to return",
-						"sortBy":         "sort by field (title, original_title, year, date, seed_count, leech_count, size, similarity)",
-						"sortDirection":  "sort direction (asc or desc, default: desc)",
-					},
-				},
-			},
-			"/indexers/manual": []map[string]interface{}{
-				{
-					"method":      "POST",
-					"description": "Add a manual torrent entry to the indexer for 12 hours",
-					"body": map[string]interface{}{
+					Method:      "POST",
+					Description: "Add a manual torrent entry to the indexer for 12 hours",
+					Body: map[string]interface{}{
 						"magnetLink": "magnet link",
-					}},
+					},
+				},
 				{
-					"method":      "GET",
-					"description": "Get all manual torrents",
+					Method:      "GET",
+					Description: "Get all manual torrents",
 				},
 			},
-			"/search": []map[string]interface{}{
+			Search: []EndpointDetail{
 				{
-					"method":      "GET",
-					"description": "Search for cached torrents across all indexers",
-					"query_params": map[string]string{
+					Method:      "GET",
+					Description: "Search for cached torrents across all indexers",
+					QueryParams: map[string]string{
 						"q":     "search query",
 						"limit": "maximum number of results to return (default: 10)",
 					},
 				},
 			},
-			"/ui/": []map[string]interface{}{
+			UI: []EndpointDetail{
 				{
-					"method":      "GET",
-					"description": "Show the unified search UI (only work if Meilisearch is enabled)",
+					Method:      "GET",
+					Description: "Show the unified search UI (only work if Meilisearch is enabled)",
 				},
 			},
 		},

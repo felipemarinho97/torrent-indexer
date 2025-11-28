@@ -166,8 +166,14 @@ func ApplyLimit(_ *Indexer, r *http.Request, torrents []schema.IndexedTorrent) [
 // ApplySorting sorts the results based on "sortBy" and "sortDirection" query parameters
 func ApplySorting(_ *Indexer, r *http.Request, torrents []schema.IndexedTorrent) []schema.IndexedTorrent {
 	sortBy := r.URL.Query().Get("sortBy")
+	q := r.URL.Query().Get("q")
 	if sortBy == "" {
-		return torrents
+		if q == "" {
+			sortBy = "date"
+		} else {
+			// for search queries, default to sorting by similarity
+			sortBy = "similarity"
+		}
 	}
 
 	sortDirection := r.URL.Query().Get("sortDirection")
@@ -218,4 +224,59 @@ func ApplySorting(_ *Indexer, r *http.Request, torrents []schema.IndexedTorrent)
 	})
 
 	return torrents
+}
+
+// FilterBy filters the results based on various query parameters
+func FilterBy(_ *Indexer, r *http.Request, torrents []schema.IndexedTorrent) []schema.IndexedTorrent {
+	// Parse filter parameters
+	audioParam := r.URL.Query().Get("audio")
+	yearParam := r.URL.Query().Get("year")
+	imdbParam := r.URL.Query().Get("imdb")
+
+	var requestedAudioTags []string
+	if audioParam != "" {
+		parts := strings.Split(audioParam, ",")
+		for _, p := range parts {
+			if t := strings.TrimSpace(strings.ToLower(p)); t != "" {
+				requestedAudioTags = append(requestedAudioTags, t)
+			}
+		}
+	}
+
+	// If no filters are active, return original list
+	if len(requestedAudioTags) == 0 && yearParam == "" && imdbParam == "" {
+		return torrents
+	}
+
+	return utils.Filter(torrents, func(it schema.IndexedTorrent) bool {
+		// Filter by Audio
+		if len(requestedAudioTags) > 0 {
+			hasAudio := false
+			for _, audio := range it.Audio {
+				if slices.Contains(requestedAudioTags, strings.ToLower(audio.String())) {
+					hasAudio = true
+					break
+				}
+			}
+			if !hasAudio {
+				return false
+			}
+		}
+
+		// Filter by Year
+		if yearParam != "" {
+			if it.Year != yearParam {
+				return false
+			}
+		}
+
+		// Filter by IMDB ID
+		if imdbParam != "" {
+			if !strings.Contains(it.IMDB, imdbParam) {
+				return false
+			}
+		}
+
+		return true
+	})
 }

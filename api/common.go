@@ -245,7 +245,9 @@ func getAudioFromTitle(releaseTitle string, audioFromContent []schema.Audio) []s
 	slices.SortFunc(magnetAudio, func(a, b schema.Audio) int {
 		return strings.Compare(a.String(), b.String())
 	})
-	magnetAudio = slices.Compact(magnetAudio)
+	magnetAudio = slices.CompactFunc(magnetAudio, func(a, b schema.Audio) bool {
+		return a.String() == b.String()
+	})
 
 	return magnetAudio
 }
