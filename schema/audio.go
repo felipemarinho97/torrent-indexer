@@ -90,6 +90,8 @@ var AudioList = []Audio{
 	AudioMandarin,
 	AudioMandarin2,
 	AudioMandarin3,
+	AudioCantonese,
+	AudioCantonese2,
 	AudioRussian,
 	AudioSwedish,
 	AudioSwedish2,
