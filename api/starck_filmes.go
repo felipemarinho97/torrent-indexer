@@ -20,7 +20,7 @@ import (
 
 var starck_filmes = IndexerMeta{
 	Label:       "starck_filmes",
-	URL:         "https://www.starckfilmes.fans/",
+	URL:         utils.GetEnvOrDefault("INDEXER_STARCK_FILMES_URL", "https://www.starckfilmes.fans/"),
 	SearchURL:   "?s=",
 	PagePattern: "page/%s",
 }

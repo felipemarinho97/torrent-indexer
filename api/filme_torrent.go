@@ -22,7 +22,7 @@ import (
 
 var filme_torrent = IndexerMeta{
 	Label:       "filme_torrent",
-	URL:         "https://limonfilmes.org/",
+	URL:         utils.GetEnvOrDefault("INDEXER_FILME_TORRENT_URL", "https://sfilme.com/"),
 	SearchURL:   "?s=",
 	PagePattern: "page/%s",
 }
