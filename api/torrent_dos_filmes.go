@@ -20,7 +20,7 @@ import (
 
 var torrent_dos_filmes = IndexerMeta{
 	Label:       "torrent_dos_filmes",
-	URL:         "https://torrentdosfilmes.se/",
+	URL:         utils.GetEnvOrDefault("INDEXER_TORRENT_DOS_FILMES_URL", "https://torrentdosfilmes.se/"),
 	SearchURL:   "?s=",
 	PagePattern: "category/dublado/page/%s",
 }
