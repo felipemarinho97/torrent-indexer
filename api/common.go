@@ -3,6 +3,7 @@ package handler
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"regexp"
@@ -59,6 +60,24 @@ func getPublishedDateFromMeta(document *goquery.Document) time.Time {
 	if datePublished == "" {
 		// <meta property="og:updated_time" content="2025-09-30T13:08:58-03:00">
 		datePublished = strings.TrimSpace(document.Find("meta[property=\"og:updated_time\"]").AttrOr("content", ""))
+	}
+
+	if datePublished == "" {
+		// type="application/ld+json" with "datePublished" attribute on json
+		scriptTags := document.Find("script[type=\"application/ld+json\"]")
+		scriptTags.EachWithBreak(func(i int, s *goquery.Selection) bool {
+			scriptContent := s.Text()
+			mapData := make(map[string]interface{})
+			err := json.Unmarshal([]byte(scriptContent), &mapData)
+			if err != nil {
+				return true // continue
+			}
+			if dateVal, ok := mapData["datePublished"].(string); ok {
+				datePublished = dateVal
+				return false // break
+			}
+			return true // continue
+		})
 	}
 
 	if datePublished != "" {

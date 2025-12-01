@@ -131,12 +131,16 @@ func getTorrents(ctx context.Context, i *Indexer, link, referer string) ([]schem
 	article := doc.Find("article")
 	title := strings.Replace(article.Find(".entry-title").Text(), " - Download", "", -1)
 	textContent := article.Find("div.entry-content")
-	// div itemprop="datePublished"
-	datePublished := strings.TrimSpace(article.Find("div[itemprop=\"datePublished\"]").Text())
-	// pattern: 10 de setembro de 2021
-	date, err := parseLocalizedDate(datePublished)
-	if err != nil {
-		return nil, err
+	date := getPublishedDateFromMeta(doc)
+
+	if date.IsZero() {
+		// div itemprop="datePublished"
+		datePublished := strings.TrimSpace(article.Find("div[itemprop=\"datePublished\"]").Text())
+		// pattern: 10 de setembro de 2021
+		date, err = parseLocalizedDate(datePublished)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	magnets := textContent.Find("a[href^=\"magnet\"]")
