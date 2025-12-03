@@ -43,6 +43,7 @@ You can configure the server using the following environment variables:
 - `MEILISEARCH_ADDRESS`: (optional) The address of the MeiliSearch instance. Default: `N/A`
 - `MEILISEARCH_KEY`: (optional) The API key of the MeiliSearch instance. Default: `N/A`
 - `REDIS_HOST`: (optional) The address of the Redis instance. Default: `localhost`
+- `REDIS_PASSWORD`: (optional) The password of the Redis instance. Default: `N/A`
 - `SHORT_LIVED_CACHE_EXPIRATION` (optional) The expiration time of the short-lived cache in duration format. Default: `30m`
     - This cache is used to cache homepage or search results.
     - Example: `30m`, `1h`, `1h30m`, `1h30m30s`

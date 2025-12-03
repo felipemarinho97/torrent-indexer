@@ -24,10 +24,13 @@ func NewRedis() *Redis {
 	if redisHost == "" {
 		redisHost = "localhost"
 	}
+
+	redisPassword := os.Getenv("REDIS_PASSWORD")
+	// redisPassword can be empty when the server has no authentication enabled
 	return &Redis{
 		client: redis.NewClient(&redis.Options{
 			Addr:     fmt.Sprintf("%s:6379", redisHost),
-			Password: "",
+			Password: redisPassword,
 		}),
 		defaultExpiration: DefaultExpiration,
 	}
