@@ -24,7 +24,7 @@ import (
 
 var vacaTorrent = IndexerMeta{
 	Label:       "vaca_torrent",
-	URL:         "https://vacatorrentmov.com/",
+	URL:         utils.GetEnvOrDefault("INDEXER_VACA_TORRENT_URL", "https://vacatorrentmov.com/"),
 	SearchURL:   "wp-admin/admin-ajax.php",
 	PagePattern: "page/%s",
 }

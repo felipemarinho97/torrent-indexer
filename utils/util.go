@@ -5,6 +5,8 @@ import (
 	"regexp"
 	"strings"
 
+	"os"
+
 	"github.com/felipemarinho97/torrent-indexer/logging"
 )
 
@@ -167,4 +169,13 @@ func IsVideoFile(filename string) bool {
 		}
 	}
 	return false
+}
+
+// GetEnvOrDefault returns the value of the environment variable named by the key,
+// or the default value if the environment variable is not set.
+func GetEnvOrDefault(key, defaultValue string) string {
+	if value, exists := os.LookupEnv(key); exists && value != "" {
+		return value
+	}
+	return defaultValue
 }
