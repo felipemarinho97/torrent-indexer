@@ -12,7 +12,6 @@ services:
     environment:
       - LOG_LEVEL=0 # 0=debug, 1=info, 2=warn, 3=error
       - REDIS_HOST=redis
-      # - REDIS_PASSWORD=supersecret
       - FLARESOLVERR_ADDRESS=http://flaresolverr:8191
 
       ## Meilisearch configuration (optional)
