@@ -225,10 +225,7 @@ search:
 
 ## Mirrors
 
-- **[https://torrent-indexer.darklyn.org/](https://torrent-indexer.darklyn.org/)** (Default - points to São Paulo mirror)
-- **[https://torrent-indexer.br-sp1.darklyn.org/](https://torrent-indexer.br-sp1.darklyn.org/)** (Southeast - São Paulo)
-- **[https://torrent-indexer.br-pb1.darklyn.org/](https://torrent-indexer.br-pb1.darklyn.org/)** (Northeast - Paraíba)
-- **[https://torrent-indexer.us-sc1.darklyn.org/](https://torrent-indexer.us-sc1.darklyn.org/)** (US East - South Carolina)
+- N/A
 
 ### Community Mirrors
 
@@ -244,8 +241,8 @@ If you're running a public instance of torrent-indexer and would like to share i
 
 The instance running at [https://torrent-indexer.darklyn.org/](https://torrent-indexer.darklyn.org/) is my personal instance and it is not guaranteed to be up all the time. Also, for better availability, I recommend deploying your own instance because the Cloudflare protection may block requests from indexed sites if too many requests are made in a short period of time from the same IP.
 
-If I notice that the instance is being used a lot, I may block requests from Jackett/Prowlarr to avoid overloading the server without prior notice.
+If I notice that the instance is being used a lot, I may block requests from Jackett/Prowlarr to avoid overloading the server. I can also redirect your requests to a fake instance without prior notice. Consider yourself warned.
 
-## If you do not want to self-host
+## If you cannot self-host
 
-**If you really want to use my [instance](https://torrent-indexer.darklyn.org) continuously without the risk of being IP blocked, please subscribe to my [GitHub Sponsors](https://github.com/sponsors/felipemarinho97) (any tier) and let me know about your support ❤️ via [Discord](https://discord.gg/7wqNywmpQW).**
+**If you really need to use my [instance](https://torrent-indexer.darklyn.org) continuously without the risk of being IP blocked, please subscribe to my [GitHub Sponsors](https://github.com/sponsors/felipemarinho97) (any tier) and let me know about your support ❤️ via [Discord](https://discord.gg/7wqNywmpQW).**
