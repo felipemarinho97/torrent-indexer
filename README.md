@@ -240,7 +240,7 @@ If you're running a public instance of torrent-indexer and would like to share i
 
 The instance running at [https://torrent-indexer.darklyn.org/](https://torrent-indexer.darklyn.org/) is my personal instance and it is not guaranteed to be up all the time. Also, for better availability, I recommend deploying your own instance because the Cloudflare protection may block requests from indexed sites if too many requests are made in a short period of time from the same IP.
 
-If I notice that the instance is being used a lot, I may block requests from Jackett/Prowlarr to avoid overloading the server without prior notice. Consider yourself warned.
+If I notice that the instance is being used a lot, I may block requests from Jackett/Prowlarr to avoid overloading the server. I can also redirect your requests to a fake instance without prior notice. Consider yourself warned.
 
 ## If you cannot self-host
 
