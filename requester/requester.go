@@ -28,9 +28,9 @@ type Requster struct {
 	shortLivedCacheExpiration time.Duration
 }
 
-func NewRequester(fs *FlareSolverr, c *cache.Redis) *Requster {
+func NewRequester(fs *FlareSolverr, c *cache.Redis, timeout time.Duration) *Requster {
 	httpClient := &http.Client{
-		Timeout: 5000 * time.Millisecond,
+		Timeout: timeout,
 		Transport: &http.Transport{
 			DisableCompression:  false,
 			MaxIdleConns:        100,              // Increase connection pool
