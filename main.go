@@ -38,8 +38,22 @@ func main() {
 	metrics := monitoring.NewMetrics()
 	metrics.Register()
 
-	flaresolverr := requester.NewFlareSolverr(os.Getenv("FLARESOLVERR_ADDRESS"), 60000)
-	req := requester.NewRequester(flaresolverr, redis)
+	timeoutFlaresolverrMilli := 30000
+	if v := os.Getenv("FLARESOLVERR_TIMEOUT_SECONDS"); v != "" {
+		if t, err := strconv.Atoi(v); err == nil {
+			timeoutFlaresolverrMilli = t * 1000
+		}
+	}
+
+	flaresolverr := requester.NewFlareSolverr(os.Getenv("FLARESOLVERR_ADDRESS"), timeoutFlaresolverrMilli)
+
+	timeoutRequester := 5000 * time.Millisecond
+	if v := os.Getenv("REQUEST_TIMEOUT_MILLISECONDS"); v != "" {
+		if t, err := strconv.Atoi(v); err == nil {
+			timeoutRequester = time.Duration(t) * time.Millisecond
+		}
+	}
+	req := requester.NewRequester(flaresolverr, redis, timeoutRequester)
 
 	// get shot-lived and long-lived cache expiration from env
 	shortLivedCacheExpiration, err := str2duration.ParseDuration(os.Getenv("SHORT_LIVED_CACHE_EXPIRATION"))
