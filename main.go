@@ -38,7 +38,14 @@ func main() {
 	metrics := monitoring.NewMetrics()
 	metrics.Register()
 
-	flaresolverr := requester.NewFlareSolverr(os.Getenv("FLARESOLVERR_ADDRESS"), 60000)
+	timeoutFlaresolverrMilli := 30000
+	if v := os.Getenv("FLARESOLVERR_TIMEOUT_SECONDS"); v != "" {
+		if t, err := strconv.Atoi(v); err == nil {
+			timeoutFlaresolverrMilli = t * 1000
+		}
+	}
+
+	flaresolverr := requester.NewFlareSolverr(os.Getenv("FLARESOLVERR_ADDRESS"), timeoutFlaresolverrMilli)
 	req := requester.NewRequester(flaresolverr, redis)
 
 	// get shot-lived and long-lived cache expiration from env
