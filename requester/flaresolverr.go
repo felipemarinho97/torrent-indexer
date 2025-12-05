@@ -2,6 +2,7 @@ package requester
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -171,10 +172,14 @@ func (f *FlareSolverr) ListSessions() ([]string, error) {
 	return sessionIDs, nil
 }
 
-func (f *FlareSolverr) RetrieveSession() string {
+func (f *FlareSolverr) RetrieveSession(ctx context.Context) (string, error) {
 	// Blocking receive from the session pool.
-	session := <-f.sessionPool
-	return session
+	select {
+	case session := <-f.sessionPool:
+		return session, nil
+	case <-ctx.Done():
+		return "", ctx.Err()
+	}
 }
 
 type Response struct {
@@ -199,14 +204,17 @@ type Response struct {
 	} `json:"solution"`
 }
 
-func (f *FlareSolverr) Get(_url string, attempts int) (io.ReadCloser, error) {
+func (f *FlareSolverr) Get(ctx context.Context, _url string, attempts int) (io.ReadCloser, error) {
 	// Check if the FlareSolverr instance was initiated
 	if !f.initiated {
 		return io.NopCloser(bytes.NewReader([]byte(""))), nil
 	}
 
 	// Retrieve session from the pool (blocking if no sessions available)
-	session := f.RetrieveSession()
+	session, err := f.RetrieveSession(ctx)
+	if err != nil {
+		return nil, err
+	}
 
 	// Ensure the session is returned to the pool after the request is done
 	defer func() {
@@ -224,7 +232,7 @@ func (f *FlareSolverr) Get(_url string, attempts int) (io.ReadCloser, error) {
 		return nil, err
 	}
 
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/v1", f.url), bytes.NewBuffer(jsonBody))
+	req, err := http.NewRequestWithContext(ctx, "POST", fmt.Sprintf("%s/v1", f.url), bytes.NewBuffer(jsonBody))
 	if err != nil {
 		return nil, err
 	}
@@ -249,7 +257,7 @@ func (f *FlareSolverr) Get(_url string, attempts int) (io.ReadCloser, error) {
 		if resp.StatusCode == http.StatusInternalServerError && attempts != 0 {
 			attempts--
 			logging.Warn().Str("url", _url).Int("attempts_left", attempts).Msg("FlareSolverr Internal Server Error, retrying")
-			return f.Get(_url, attempts) // Retry the request
+			return f.Get(ctx, _url, attempts) // Retry the request
 		}
 
 		// log the http status code
@@ -272,7 +280,9 @@ func (f *FlareSolverr) Get(_url string, attempts int) (io.ReadCloser, error) {
 	if response.Solution.Response == "" && len(response.Solution.Cookies) > 0 {
 		logging.Debug().Str("url", _url).Msg("FlareSolverr making new request with cookies")
 		// Create a new request with cookies
-		client := &http.Client{}
+		client := &http.Client{
+			Timeout: time.Duration(f.maxTimeout) * time.Millisecond,
+		}
 		cookieJar, err := cookiejar.New(&cookiejar.Options{})
 		if err != nil {
 			return nil, err
@@ -289,7 +299,7 @@ func (f *FlareSolverr) Get(_url string, attempts int) (io.ReadCloser, error) {
 		}
 		client.Jar = cookieJar
 
-		secondReq, err := http.NewRequest("GET", _url, nil)
+		secondReq, err := http.NewRequestWithContext(ctx, "GET", _url, nil)
 		if err != nil {
 			return nil, err
 		}
