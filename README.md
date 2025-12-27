@@ -40,6 +40,8 @@ You can configure the server using the following environment variables:
   - Possible values: `0` (debug), `1` (info), `2` (warn), `3` (error)
 - `LOG_FORMAT`: (optional) The log format. Can be "json" or default to console logger.
 - `FLARESOLVERR_ADDRESS`: (optional) The address of the FlareSolverr instance. Default: `N/A`
+- `FLARESOLVERR_TIMEOUT_SECONDS`: (optional) Timeout for flaresolverr requests. Default: `30`
+- `REQUEST_TIMEOUT_MILLISECONDS`: (optional) Timeout for external scraping requests. Default: `5000`
 - `MEILISEARCH_ADDRESS`: (optional) The address of the MeiliSearch instance. Default: `N/A`
 - `MEILISEARCH_KEY`: (optional) The API key of the MeiliSearch instance. Default: `N/A`
 - `REDIS_HOST`: (optional) The address of the Redis instance. Default: `localhost`

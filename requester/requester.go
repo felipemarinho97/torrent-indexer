@@ -28,9 +28,9 @@ type Requster struct {
 	shortLivedCacheExpiration time.Duration
 }
 
-func NewRequester(fs *FlareSolverr, c *cache.Redis) *Requster {
+func NewRequester(fs *FlareSolverr, c *cache.Redis, timeout time.Duration) *Requster {
 	httpClient := &http.Client{
-		Timeout: 30 * time.Second,
+		Timeout: timeout,
 		Transport: &http.Transport{
 			DisableCompression:  false,
 			MaxIdleConns:        100,              // Increase connection pool
@@ -78,7 +78,7 @@ func (i *Requster) GetDocument(ctx context.Context, url string, referer ...strin
 	resp, err := i.httpClient.Do(req)
 	if err != nil {
 		// try request with flare solverr
-		body, err = i.fs.Get(url, 3)
+		body, err = i.fs.Get(ctx, url, 3)
 		if err != nil {
 			return nil, fmt.Errorf("failed to do request for url %s: %w", url, err)
 		}
@@ -109,7 +109,7 @@ func (i *Requster) GetDocument(ctx context.Context, url string, referer ...strin
 	bodyByte = buf.Bytes()
 	if hasChallange(bodyByte) {
 		// try request with flare solverr
-		body, err = i.fs.Get(url, 3)
+		body, err = i.fs.Get(ctx, url, 3)
 		if err != nil {
 			return nil, fmt.Errorf("failed to do request for url %s: %w", url, err)
 		}

@@ -289,7 +289,12 @@ func getTorrentsFilmeTorrent(ctx context.Context, i *Indexer, link, referer stri
 	return indexedTorrents, nil
 }
 
+// resolveVialinkShortenedLink resolves a vialink shortened link to its magnet link with 5000ms timeout
 func resolveVialinkShortenedLink(ctx context.Context, i *Indexer, shortenedURL string) (string, error) {
+	// set a timeout for the request
+	ctx, cancel := context.WithTimeout(ctx, 5000*time.Millisecond)
+	defer cancel()
+
 	// Check cache first
 	cacheKey := fmt.Sprintf("shortened_link:%s", shortenedURL)
 	cached, err := i.redis.Get(ctx, cacheKey)
