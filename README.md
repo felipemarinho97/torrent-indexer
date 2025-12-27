@@ -17,7 +17,6 @@ Visit [https://torrent-indexer.darklyn.org/](https://torrent-indexer.darklyn.org
 - [starck-filmes](https://www.starckfilmes.fans/)
 - [rede-torrent](https://redetorrent.com/)
 - [vaca-torrent](https://vacatorrentmov.com/)
-- [filme-torrent](https://www.filmetorrent.org)
 
 ## Deploy
 
@@ -171,7 +170,6 @@ settings:
       torrent-dos-filmes: Torrent dos Filmes
       starck-filmes: Starck Filmes
       rede_torrent: Rede Torrent
-      filme_torrent: Filme Torrent
       vaca_torrent: Vaca Torrent
 
 search:
