@@ -9,6 +9,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -24,7 +25,7 @@ import (
 
 var vacaTorrent = IndexerMeta{
 	Label:       "vaca_torrent",
-	URL:         utils.GetEnvOrDefault("INDEXER_VACA_TORRENT_URL", "https://vacatorrentmov.com/"),
+	URL:         utils.GetIndexerURLFromEnv("INDEXER_VACA_TORRENT_URL", "https://vacatorrentmov.com/"),
 	SearchURL:   "wp-admin/admin-ajax.php",
 	PagePattern: "page/%s",
 }
@@ -112,9 +113,20 @@ func (i *Indexer) HandlerVacaTorrentIndexer(w http.ResponseWriter, r *http.Reque
 		_ = i.requester.ExpireDocument(ctx, targetURL)
 	}
 
+	soraFetcher, err := utils.NewSoraLinkFetcher("https://vacadb.org", i.redis)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		err = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		if err != nil {
+			logging.ErrorWithRequest(r).Err(err).Msg("Failed to encode error response")
+		}
+		i.metrics.IndexerErrors.WithLabelValues(metadata.Label).Inc()
+		return
+	}
+
 	// extract each torrent link
 	indexedTorrents := utils.ParallelFlatMap(links, func(link string) ([]schema.IndexedTorrent, error) {
-		return getTorrentsVacaTorrent(ctx, i, link, targetURL)
+		return getTorrentsVacaTorrent(ctx, i, link, targetURL, soraFetcher)
 	})
 
 	// Apply post-processors
@@ -211,7 +223,7 @@ func postSearchVacaTorrent(ctx context.Context, i *Indexer, targetURL, query, pa
 	return doc, nil
 }
 
-func getTorrentsVacaTorrent(ctx context.Context, i *Indexer, link, referer string) ([]schema.IndexedTorrent, error) {
+func getTorrentsVacaTorrent(ctx context.Context, i *Indexer, link, referer string, soraFetcher *utils.SoraLinkFetcher) ([]schema.IndexedTorrent, error) {
 	var indexedTorrents []schema.IndexedTorrent
 	doc, err := getDocument(ctx, i, link, referer)
 	if err != nil {
@@ -290,6 +302,24 @@ func getTorrentsVacaTorrent(ctx context.Context, i *Indexer, link, referer strin
 	doc.Find("a[href^=\"magnet\"]").Each(func(_ int, s *goquery.Selection) {
 		magnetLink, _ := s.Attr("href")
 		magnetLinks = append(magnetLinks, magnetLink)
+	})
+
+	doc.Find(".area-links-download a").Each(func(_ int, s *goquery.Selection) {
+		// check for vacadb.org
+		href, exists := s.Attr("href")
+		if exists && strings.Contains(href, "vacadb.org") {
+			// extract the first query param value
+			u, err := url.Parse(href)
+			if err == nil {
+				queryID := u.Query().Get("id")
+				if queryID != "" {
+					magnetLink, err := soraFetcher.FetchLink(ctx, queryID)
+					if err == nil && magnetLink != "" {
+						magnetLinks = append(magnetLinks, magnetLink)
+					}
+				}
+			}
+		}
 	})
 
 	size = utils.StableUniq(size)

@@ -20,7 +20,7 @@ import (
 
 var bludv = IndexerMeta{
 	Label:       "bludv",
-	URL:         utils.GetEnvOrDefault("INDEXER_BLUDV_URL", "https://bludv.net/"),
+	URL:         utils.GetIndexerURLFromEnv("INDEXER_BLUDV_URL", "https://bludv-v1.xyz/"),
 	SearchURL:   "?s=",
 	PagePattern: "page/%s",
 }

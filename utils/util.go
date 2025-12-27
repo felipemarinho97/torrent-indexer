@@ -179,3 +179,11 @@ func GetEnvOrDefault(key, defaultValue string) string {
 	}
 	return defaultValue
 }
+
+func GetIndexerURLFromEnv(key string, defaultValue string) string {
+	value := GetEnvOrDefault(key, defaultValue)
+	if !strings.HasSuffix(value, "/") {
+		value += "/"
+	}
+	return value
+}
