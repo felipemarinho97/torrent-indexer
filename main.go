@@ -45,7 +45,14 @@ func main() {
 		}
 	}
 
-	flaresolverr := requester.NewFlareSolverr(os.Getenv("FLARESOLVERR_ADDRESS"), timeoutFlaresolverrMilli)
+	flaresolverrPoolSize := 5
+	if v := os.Getenv("FLARESOLVERR_POOL_SIZE"); v != "" {
+		if t, err := strconv.Atoi(v); err == nil {
+			flaresolverrPoolSize = t
+		}
+	}
+
+	flaresolverr := requester.NewFlareSolverr(os.Getenv("FLARESOLVERR_ADDRESS"), timeoutFlaresolverrMilli, flaresolverrPoolSize)
 
 	timeoutRequester := 5000 * time.Millisecond
 	if v := os.Getenv("REQUEST_TIMEOUT_MILLISECONDS"); v != "" {

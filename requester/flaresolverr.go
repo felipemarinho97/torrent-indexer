@@ -30,12 +30,14 @@ var (
 	ErrListSessions = fmt.Errorf("failed to list sessions")
 )
 
-func NewFlareSolverr(url string, timeoutMilli int) *FlareSolverr {
-	poolSize := 5
+func NewFlareSolverr(url string, timeoutMilli int, poolSize int) *FlareSolverr {
+	if poolSize <= 0 {
+		poolSize = 5
+	}
 	httpClient := &http.Client{
 		Timeout: time.Duration(timeoutMilli) * time.Millisecond,
 	}
-	sessionPool := make(chan string, poolSize) // Pool size of 5 sessions
+	sessionPool := make(chan string, poolSize)
 
 	f := &FlareSolverr{
 		url:         url,
