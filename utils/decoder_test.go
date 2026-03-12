@@ -97,3 +97,48 @@ func TestBase64Decode(t *testing.T) {
 		})
 	}
 }
+
+func TestDecodeStarckDataU(t *testing.T) {
+	tests := []struct {
+		name    string
+		dataU   string
+		want    string
+		wantErr bool
+	}{
+		{
+			name:    "Valid data-u magnet link",
+			dataU:   "mb6ab5g78n4de63tb0:7d?2bx12t69=1bu55r94na2:86beft8fi50h0c:1c",
+			want:    "magnet:?xt=urn:btih:bb746b7216159a8e8501658d30db29b5426ff0cc",
+			wantErr: false,
+		},
+		{
+			name:    "Invalid data-u string",
+			dataU:   "invalid_data_u_string",
+			want:    "",
+			wantErr: true,
+		},
+		{
+			name:    "Empty data-u",
+			dataU:   "",
+			want:    "",
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, gotErr := utils.DecodeStarckDataU(tt.dataU)
+			if gotErr != nil {
+				if !tt.wantErr {
+					t.Errorf("DecodeStarckDataU() failed: %v", gotErr)
+				}
+				return
+			}
+			if tt.wantErr {
+				t.Fatal("DecodeStarckDataU() succeeded unexpectedly")
+			}
+			if got != tt.want {
+				t.Errorf("DecodeStarckDataU() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

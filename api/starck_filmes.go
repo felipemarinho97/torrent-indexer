@@ -20,7 +20,7 @@ import (
 
 var starck_filmes = IndexerMeta{
 	Label:       "starck_filmes",
-	URL:         utils.GetIndexerURLFromEnv("INDEXER_STARCK_FILMES_URL", "https://www.starckfilmes.fans/"),
+	URL:         utils.GetIndexerURLFromEnv("INDEXER_STARCK_FILMES_URL", "https://www.starckfilmes-v10.com/"),
 	SearchURL:   "?s=",
 	PagePattern: "page/%s",
 }
@@ -87,6 +87,7 @@ func (i *Indexer) HandlerStarckFilmesIndexer(w http.ResponseWriter, r *http.Requ
 	// if no links were indexed, expire the document in cache
 	if len(links) == 0 {
 		_ = i.requester.ExpireDocument(ctx, url)
+		logging.DebugWithRequest(r).Str("url", url).Msg("No links found, expiring cache")
 	}
 
 	// extract each torrent link
@@ -128,6 +129,16 @@ func getTorrentStarckFilmes(ctx context.Context, i *Indexer, link, referer strin
 	var magnetLinks []string
 	magnets.Each(func(i int, s *goquery.Selection) {
 		magnetLink, _ := s.Attr("href")
+		magnetLinks = append(magnetLinks, magnetLink)
+	})
+	dataUs := post_buttons.Find("a[data-u]")
+	dataUs.Each(func(i int, s *goquery.Selection) {
+		dataU, _ := s.Attr("data-u")
+		magnetLink, err := utils.DecodeStarckDataU(dataU)
+		if err != nil {
+			logging.Warn().Err(err).Str("data_u", dataU).Msg("Failed to decode data-u attribute, skipping")
+			return
+		}
 		magnetLinks = append(magnetLinks, magnetLink)
 	})
 
