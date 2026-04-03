@@ -322,6 +322,20 @@ func getTorrentsVacaTorrent(ctx context.Context, i *Indexer, link, referer strin
 		}
 	})
 
+	// the magnet links are on an subpage, displayed raw
+	doc.Find("a[href*=\"movie-links\"]").Each(func(_ int, s *goquery.Selection) {
+		subpageLink, exists := s.Attr("href")
+		if exists {
+			subDoc, err := getDocument(ctx, i, subpageLink, link)
+			if err == nil {
+				subDoc.Find("a[href^=\"magnet\"]").Each(func(_ int, s *goquery.Selection) {
+					magnetLink, _ := s.Attr("href")
+					magnetLinks = append(magnetLinks, magnetLink)
+				})
+			}
+		}
+	})
+
 	size = utils.StableUniq(size)
 
 	var chanIndexedTorrent = make(chan schema.IndexedTorrent)
