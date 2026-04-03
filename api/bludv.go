@@ -128,7 +128,7 @@ func getTorrentsBluDV(ctx context.Context, i *Indexer, link, referer string) ([]
 	adwareDomains := []string{
 		"https://www.seuvideo.xyz",
 		"https://www.systemads.org",
-                "https://superadsgo.xyz",
+		"https://superadsgo.xyz",
 	}
 
 	// Process adware links for each domain in the list
