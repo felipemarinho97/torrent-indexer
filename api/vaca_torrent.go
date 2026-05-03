@@ -223,6 +223,8 @@ func postSearchVacaTorrent(ctx context.Context, i *Indexer, targetURL, query, pa
 	return doc, nil
 }
 
+var commentRegex = regexp.MustCompile(`<!--(.*?)-->`)
+
 func getTorrentsVacaTorrent(ctx context.Context, i *Indexer, link, referer string, soraFetcher *utils.SoraLinkFetcher) ([]schema.IndexedTorrent, error) {
 	var indexedTorrents []schema.IndexedTorrent
 	doc, err := getDocument(ctx, i, link, referer)
@@ -317,6 +319,30 @@ func getTorrentsVacaTorrent(ctx context.Context, i *Indexer, link, referer strin
 					if err == nil && magnetLink != "" {
 						magnetLinks = append(magnetLinks, magnetLink)
 					}
+				}
+			}
+		}
+	})
+
+	// get the comment content inside streaming-container, parse it as HTML and extract magnet links from there
+	doc.Find(".streaming-container").Each(func(_ int, s *goquery.Selection) {
+		html, err := s.Html()
+		// extract html comments and parse them as HTML to find magnet links
+		html = strings.ReplaceAll(html, "\n", "")
+		if err == nil {
+			matches := commentRegex.FindAllStringSubmatch(html, -1)
+			for _, match := range matches {
+				commentContent := match[1]
+				// check if it is a valid HTML before parsing
+				if !strings.HasPrefix(strings.TrimSpace(commentContent), "<") {
+					continue
+				}
+				commentDoc, err := goquery.NewDocumentFromReader(strings.NewReader(commentContent))
+				if err == nil {
+					commentDoc.Find("a[href^=\"magnet\"]").Each(func(_ int, s *goquery.Selection) {
+						magnetLink, _ := s.Attr("href")
+						magnetLinks = append(magnetLinks, magnetLink)
+					})
 				}
 			}
 		}
