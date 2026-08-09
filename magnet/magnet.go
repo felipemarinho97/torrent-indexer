@@ -57,7 +57,7 @@ func parseInfohash(xt string) (ih T, err error) {
 		err = errors.New("bad xt parameter prefix")
 		return
 	}
-	encoded := xt[len(xtPrefix):]
+	encoded := strings.ToUpper(xt[len(xtPrefix):])
 	decode := func() func(dst, src []byte) (int, error) {
 		switch len(encoded) {
 		case 40:
