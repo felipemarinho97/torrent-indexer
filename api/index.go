@@ -12,6 +12,7 @@ import (
 	"github.com/felipemarinho97/torrent-indexer/requester"
 	"github.com/felipemarinho97/torrent-indexer/schema"
 	meilisearch "github.com/felipemarinho97/torrent-indexer/search"
+	"github.com/felipemarinho97/torrent-indexer/utils"
 )
 
 type Indexer struct {
@@ -21,6 +22,7 @@ type Indexer struct {
 	requester         *requester.Requster
 	search            *meilisearch.SearchIndexer
 	magnetMetadataAPI *magnet.MetadataClient
+	adwareResolver    *utils.AdwareResolver
 	postProcessors    []PostProcessorFunc
 }
 
@@ -62,6 +64,7 @@ func NewIndexers(
 	req *requester.Requster,
 	si *meilisearch.SearchIndexer,
 	mc *magnet.MetadataClient,
+	adwareResolver *utils.AdwareResolver,
 ) *Indexer {
 	return &Indexer{
 		config:            config,
@@ -70,6 +73,7 @@ func NewIndexers(
 		requester:         req,
 		search:            si,
 		magnetMetadataAPI: mc,
+		adwareResolver:    adwareResolver,
 		postProcessors:    GlobalPostProcessors,
 	}
 }

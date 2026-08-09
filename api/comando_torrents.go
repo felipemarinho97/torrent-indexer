@@ -150,6 +150,26 @@ func getTorrents(ctx context.Context, i *Indexer, link, referer string) ([]schem
 		magnetLinks = append(magnetLinks, magnetLink)
 	})
 
+	adwareLinks := i.adwareResolver.ExtractAdwareLinks(textContent)
+	for _, domain := range adwareLinks {
+		magnetLinkDecoded, err := i.adwareResolver.ResolveAdware(ctx, domain)
+		if err != nil {
+			logging.Warn().Err(err).Str("href", domain).Msg("Failed to resolve adware link")
+			continue
+		}
+
+		// if decoded magnet link is indeed a magnet link, append it
+		if strings.HasPrefix(magnetLinkDecoded, "magnet:") {
+			magnetLinks = append(magnetLinks, magnetLinkDecoded)
+		} else if !strings.Contains(magnetLinkDecoded, "watch.brplayer") {
+			logging.Warn().
+				Str("href", domain).
+				Str("decoded", magnetLinkDecoded).
+				Str("indexer", bludv.Label).
+				Msg("Link decoding resulted in non-magnet link")
+		}
+	}
+
 	var audio []schema.Audio
 	var year string
 	var size []string

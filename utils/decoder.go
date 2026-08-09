@@ -3,24 +3,7 @@ package utils
 import (
 	"encoding/base64"
 	"fmt"
-	"html"
 )
-
-func DecodeAdLink(encodedStr string) (string, error) {
-	if encodedStr == "" {
-		return "", fmt.Errorf("empty string")
-	}
-	reversed := reverseString(encodedStr)
-
-	decodedBytes, err := base64.StdEncoding.DecodeString(reversed)
-	if err != nil {
-		return "", err
-	}
-
-	htmlUnescaped := html.UnescapeString(string(decodedBytes))
-
-	return htmlUnescaped, nil
-}
 
 func Base64Decode(input string) (string, error) {
 	if input == "" {

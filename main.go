@@ -14,6 +14,7 @@ import (
 	"github.com/felipemarinho97/torrent-indexer/public"
 	"github.com/felipemarinho97/torrent-indexer/requester"
 	meilisearch "github.com/felipemarinho97/torrent-indexer/search"
+	"github.com/felipemarinho97/torrent-indexer/utils"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	str2duration "github.com/xhit/go-str2duration/v2"
@@ -80,7 +81,10 @@ func main() {
 		FallbackTitleEnabled: os.Getenv("FALLBACK_TITLE_ENABLED") == "true",
 	}
 
-	indexers := handler.NewIndexers(icfg, redis, metrics, req, searchIndex, magnetMetadataAPI)
+	domainsFromEnv := utils.GetEnvOrDefault("ADWARE_DOMAINS", "https://www.seuvideo.xyz,https://www.systemads.org,https://superadsgo.xyz,https://systemads1.com,https://systemads.net")
+	adwareResolver := utils.NewAdwareResolver(redis, domainsFromEnv)
+
+	indexers := handler.NewIndexers(icfg, redis, metrics, req, searchIndex, magnetMetadataAPI, adwareResolver)
 	search := handler.NewMeilisearchHandler(searchIndex)
 
 	indexerMux := http.NewServeMux()
