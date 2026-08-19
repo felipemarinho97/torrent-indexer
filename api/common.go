@@ -198,6 +198,37 @@ func findSizesFromText(text string) []string {
 	return sizes
 }
 
+// findSizeNearMagnet returns the download size that belongs to a single magnet
+// link. On BluDV each download button is rendered as
+// "SERVIDOR PARA DOWNLOAD BluRay 1080p (2.34 GB)" right before its magnet, but in
+// two layouts: the size can sit in a sibling of the magnet anchor itself
+// (separated by a <br/> inside the same <p>), or in a sibling of the anchor's
+// wrapper element (e.g. the anchor inside a <div>, the size in the previous <p>).
+// We check the anchor's own previous siblings first, then the wrapper's. Reading
+// it per-magnet is reliable even for multi-version posts, where the global
+// "Tamanho:" field lists several sizes at once. Returns "" when none is found.
+func findSizeNearMagnet(magnetAnchor *goquery.Selection) string {
+	if s := sizeFromPrevSiblings(magnetAnchor); s != "" {
+		return s
+	}
+	return sizeFromPrevSiblings(magnetAnchor.Parent())
+}
+
+// sizeFromPrevSiblings walks backwards through the previous siblings of node and
+// returns the closest size, stopping before another magnet link (whose size
+// belongs to it). Returns "" when no size is found.
+func sizeFromPrevSiblings(node *goquery.Selection) string {
+	for sib := node.Prev(); sib.Length() > 0; sib = sib.Prev() {
+		if sib.Is(`a[href^="magnet"]`) || sib.Find(`a[href^="magnet"]`).Length() > 0 {
+			break
+		}
+		if sizes := findSizesFromText(sib.Text()); len(sizes) > 0 {
+			return sizes[len(sizes)-1]
+		}
+	}
+	return ""
+}
+
 var imdbLinkRE = regexp.MustCompile(`https://www.imdb.com(/[a-z]{2})?/title/(tt\d+)/?`)
 var subtitlesHintIMDBLinkRE = regexp.MustCompile(`imdbid-((tt)?\d+)`)
 
