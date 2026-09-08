@@ -20,7 +20,7 @@ import (
 
 var torrent_dos_filmes = IndexerMeta{
 	Label:       "torrent_dos_filmes",
-	URL:         utils.GetIndexerURLFromEnv("INDEXER_TORRENT_DOS_FILMES_URL", "https://torrentdosfilmes.se/"),
+	URL:         utils.GetIndexerURLFromEnv("INDEXER_TORRENT_DOS_FILMES_URL", "https://torrentdosfilmes-v2.xyz/"),
 	SearchURL:   "?s=",
 	PagePattern: "category/dublado/page/%s",
 }
@@ -123,6 +123,26 @@ func getTorrentsTorrentDosFilmes(ctx context.Context, i *Indexer, link, referer 
 		magnetLink, _ := s.Attr("href")
 		magnetLinks = append(magnetLinks, magnetLink)
 	})
+
+	adwareLinks := i.adwareResolver.ExtractAdwareLinks(textContent)
+	for _, domain := range adwareLinks {
+		magnetLinkDecoded, err := i.adwareResolver.ResolveAdware(ctx, domain)
+		if err != nil {
+			logging.Warn().Err(err).Str("href", domain).Msg("Failed to resolve adware link")
+			continue
+		}
+
+		// if decoded magnet link is indeed a magnet link, append it
+		if strings.HasPrefix(magnetLinkDecoded, "magnet:") {
+			magnetLinks = append(magnetLinks, magnetLinkDecoded)
+		} else if !strings.Contains(magnetLinkDecoded, "watch.brplayer") {
+			logging.Warn().
+				Str("href", domain).
+				Str("decoded", magnetLinkDecoded).
+				Str("indexer", bludv.Label).
+				Msg("Link decoding resulted in non-magnet link")
+		}
+	}
 
 	var audio []schema.Audio
 	var year string

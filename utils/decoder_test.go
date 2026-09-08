@@ -6,52 +6,6 @@ import (
 	"github.com/felipemarinho97/torrent-indexer/utils"
 )
 
-func TestDecodeAdLink(t *testing.T) {
-	tests := []struct {
-		name string // description of this test case
-		// Named input parameters for target function.
-		encodedStr string
-		want       string
-		wantErr    bool
-	}{
-		{
-			name:       "Valid encoded string",
-			encodedStr: "jVzYmJjZxYjYwMDZiVjZ2UTMmJGM3EmZ4E2M2cDZ0UGN4UmN5EWOlpDapRnY64mc11Dd49jO0VmbnFWb",
-			want:       "magnet:?xt=urn:btih:e9a96e84e4d763a8fa70bf156f5bd30b61f2fc5c",
-			wantErr:    false,
-		},
-		{
-			name:       "Invalid encoded string",
-			encodedStr: "invalid_encoded_string",
-			want:       "",
-			wantErr:    true,
-		},
-		{
-			name:       "Empty string",
-			encodedStr: "",
-			want:       "",
-			wantErr:    true,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, gotErr := utils.DecodeAdLink(tt.encodedStr)
-			if gotErr != nil {
-				if !tt.wantErr {
-					t.Errorf("DecodeAdLink() failed: %v", gotErr)
-				}
-				return
-			}
-			if tt.wantErr {
-				t.Fatal("DecodeAdLink() succeeded unexpectedly")
-			}
-			if got != tt.want {
-				t.Errorf("DecodeAdLink() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestBase64Decode(t *testing.T) {
 	tests := []struct {
 		name string // description of this test case
@@ -138,6 +92,52 @@ func TestDecodeStarckDataU(t *testing.T) {
 			}
 			if got != tt.want {
 				t.Errorf("DecodeStarckDataU() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsMagnetLink(t *testing.T) {
+	tests := []struct {
+		name string
+		link string
+		want bool
+	}{
+		{
+			name: "magnet link with an infohash",
+			link: "magnet:?xt=urn:btih:e9a96e84e4d763a8fa70bf156f5bd30b61f2fc5c",
+			want: true,
+		},
+		{
+			name: "magnet link with only a display name",
+			link: "magnet:?dn=Some.Movie.2024.1080p",
+			want: true,
+		},
+		{
+			name: "magnet scheme without a query",
+			link: "magnet:",
+			want: false,
+		},
+		{
+			name: "http link",
+			link: "https://watch.brplayer.example/movie/42",
+			want: false,
+		},
+		{
+			name: "magnet not at the start of the string",
+			link: "https://ads.example.com/go?to=magnet:?xt=urn:btih:e9a9",
+			want: false,
+		},
+		{
+			name: "empty string",
+			link: "",
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := utils.IsMagnetLink(tt.link); got != tt.want {
+				t.Errorf("IsMagnetLink(%q) = %v, want %v", tt.link, got, tt.want)
 			}
 		})
 	}

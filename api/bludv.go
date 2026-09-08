@@ -125,41 +125,24 @@ func getTorrentsBluDV(ctx context.Context, i *Indexer, link, referer string) ([]
 		magnetLinks = append(magnetLinks, magnetLink)
 	})
 
-	adwareDomains := []string{
-		"https://www.seuvideo.xyz",
-		"https://www.systemads.org",
-		"https://superadsgo.xyz",
-	}
+	adwareLinks := i.adwareResolver.ExtractAdwareLinks(textContent)
+	for _, domain := range adwareLinks {
+		magnetLinkDecoded, err := i.adwareResolver.ResolveAdware(ctx, domain)
+		if err != nil {
+			logging.Warn().Err(err).Str("href", domain).Msg("Failed to resolve adware link")
+			continue
+		}
 
-	// Process adware links for each domain in the list
-	for _, domain := range adwareDomains {
-		adwareLinks := textContent.Find(fmt.Sprintf("a[href^=\"%s\"]", domain))
-		adwareLinks.Each(func(_ int, s *goquery.Selection) {
-			href, _ := s.Attr("href")
-			// extract querysting "id" from url
-			parsedUrl, err := url.Parse(href)
-			if err != nil {
-				logging.Error().Err(err).Str("href", href).Msg("Failed to parse URL")
-				return
-			}
-			magnetLink := parsedUrl.Query().Get("id")
-			magnetLinkDecoded, err := utils.DecodeAdLink(magnetLink)
-			if err != nil {
-				logging.Error().Err(err).Str("href", href).Msg("Failed to decode ad link")
-				return
-			}
-
-			// if decoded magnet link is indeed a magnet link, append it
-			if strings.HasPrefix(magnetLinkDecoded, "magnet:") {
-				magnetLinks = append(magnetLinks, magnetLinkDecoded)
-			} else if !strings.Contains(magnetLinkDecoded, "watch.brplayer") {
-				logging.Warn().
-					Str("href", href).
-					Str("decoded", magnetLinkDecoded).
-					Str("indexer", bludv.Label).
-					Msg("Link decoding resulted in non-magnet link")
-			}
-		})
+		// if decoded magnet link is indeed a magnet link, append it
+		if strings.HasPrefix(magnetLinkDecoded, "magnet:") {
+			magnetLinks = append(magnetLinks, magnetLinkDecoded)
+		} else if !strings.Contains(magnetLinkDecoded, "watch.brplayer") {
+			logging.Warn().
+				Str("href", domain).
+				Str("decoded", magnetLinkDecoded).
+				Str("indexer", bludv.Label).
+				Msg("Link decoding resulted in non-magnet link")
+		}
 	}
 
 	var audio []schema.Audio
