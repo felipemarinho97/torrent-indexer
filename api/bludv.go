@@ -119,52 +119,136 @@ func getTorrentsBluDV(ctx context.Context, i *Indexer, link, referer string) ([]
 	textContent := article.Find("div.content")
 	date := getPublishedDate(doc)
 	magnets := textContent.Find("a[href^=\"magnet\"]")
-	var magnetLinks []string
+	var magnetLinks []ExtractedMagnet
 	magnets.Each(func(i int, s *goquery.Selection) {
 		magnetLink, _ := s.Attr("href")
-		magnetLinks = append(magnetLinks, magnetLink)
+		ctxStr := ExtractMagnetContext(s)
+		magnetLinks = append(magnetLinks, ExtractedMagnet{Link: magnetLink, Context: ctxStr})
 	})
 
-	adwareDomains := []string{
-		"https://www.seuvideo.xyz",
-		"https://www.systemads.org",
-		"https://superadsgo.xyz",
+	adwareHosts := map[string]struct{}{
+		"www.seuvideo.xyz":   {},
+		"www.systemads.org":  {},
+		"systemads.org":      {},
+		"superadsgo.xyz":     {},
+		"www.superadsgo.xyz": {},
+		"systemads.xyz":      {},
+		"www.systemads.xyz":  {},
 	}
 
-	// Process adware links for each domain in the list
-	for _, domain := range adwareDomains {
-		adwareLinks := textContent.Find(fmt.Sprintf("a[href^=\"%s\"]", domain))
-		adwareLinks.Each(func(_ int, s *goquery.Selection) {
-			href, _ := s.Attr("href")
-			// extract querysting "id" from url
-			parsedUrl, err := url.Parse(href)
-			if err != nil {
-				logging.Error().Err(err).Str("href", href).Msg("Failed to parse URL")
-				return
-			}
-			magnetLink := parsedUrl.Query().Get("id")
-			magnetLinkDecoded, err := utils.DecodeAdLink(magnetLink)
-			if err != nil {
-				logging.Error().Err(err).Str("href", href).Msg("Failed to decode ad link")
-				return
-			}
+	// Process all links and check if hostname matches known ad redirect hosts
+	textContent.Find("a[href]").Each(func(_ int, s *goquery.Selection) {
+		href, _ := s.Attr("href")
+		parsedURL, err := url.Parse(href)
+		if err != nil {
+			logging.Error().Err(err).Str("href", href).Msg("Failed to parse URL")
+			return
+		}
 
-			// if decoded magnet link is indeed a magnet link, append it
-			if strings.HasPrefix(magnetLinkDecoded, "magnet:") {
-				magnetLinks = append(magnetLinks, magnetLinkDecoded)
-			} else if !strings.Contains(magnetLinkDecoded, "watch.brplayer") {
-				logging.Warn().
-					Str("href", href).
-					Str("decoded", magnetLinkDecoded).
-					Str("indexer", bludv.Label).
-					Msg("Link decoding resulted in non-magnet link")
+		host := strings.ToLower(parsedURL.Hostname())
+		if _, ok := adwareHosts[host]; !ok {
+			return
+		}
+
+		magnetLink := parsedURL.Query().Get("id")
+		logging.Debug().Str("encoded_id", magnetLink).Str("href", href).Msg("Attempting to decode ad link")
+		magnetLinkDecoded, err := utils.DecodeAdLink(magnetLink)
+		ctxStr := ExtractMagnetContext(s)
+		
+		pHtml, _ := s.Parent().Html()
+		logging.Debug().Str("ctxStr", ctxStr).Str("href", href).Str("parentHtml", pHtml).Msg("Extracted context for link")
+
+		// Strategy 1: Try decoding
+		if err == nil && strings.HasPrefix(magnetLinkDecoded, "magnet:") {
+			logging.Debug().Str("decoded", magnetLinkDecoded).Msg("Successfully decoded ad link")
+			magnetLinks = append(magnetLinks, ExtractedMagnet{Link: magnetLinkDecoded, Context: ctxStr})
+			return
+		}
+
+		// Strategy 2: Try resolving via HTTP HEAD to capture redirect location
+		logging.Debug().Str("href", href).Msg("Decode failed, attempting to resolve via HEAD request for redirect")
+		
+		// Make a HEAD request to capture the redirect Location header without following it
+		headReq, err := http.NewRequestWithContext(ctx, "HEAD", href, nil)
+		if err == nil {
+			// Create a custom client that doesn't follow redirects
+			client := &http.Client{
+				CheckRedirect: func(req *http.Request, via []*http.Request) error {
+					return http.ErrUseLastResponse // Don't follow redirects
+				},
+				Timeout: 10 * time.Second,
+			}
+			resp, err := client.Do(headReq)
+			if err == nil && resp.StatusCode >= 300 && resp.StatusCode < 400 {
+				location := resp.Header.Get("Location")
+				if strings.HasPrefix(location, "magnet:") {
+					logging.Debug().Str("magnet", location).Str("href", href).Msg("Extracted magnet from redirect Location header")
+					magnetLinks = append(magnetLinks, ExtractedMagnet{Link: location, Context: ctxStr})
+					resp.Body.Close()
+					return
+				}
+				resp.Body.Close()
+			}
+		}
+
+		// Fallback: Try resolving via FlareSolverr and look for magnet in HTML
+		doc, err := getDocument(ctx, i, href, referer)
+		if err != nil {
+			logging.Error().Err(err).Str("href", href).Msg("Failed to resolve ad link via FlareSolverr")
+			return
+		}
+
+		// Search the raw HTML for any occurrence of 'receber.php'
+		htmlContent, _ := doc.Html()
+		lines := strings.Split(htmlContent, "\n")
+		var redirectURL string
+		for _, line := range lines {
+			if strings.Contains(line, "receber.php") {
+				start := strings.Index(line, "https://")
+				if start != -1 {
+					end := strings.Index(line[start:], "\"")
+					if end != -1 {
+						redirectURL = line[start : start+end]
+						break
+					}
+					// Try single quote if double quote fails
+					end = strings.Index(line[start:], "'")
+					if end != -1 {
+						redirectURL = line[start : start+end]
+						break
+					}
+				}
+			}
+		}
+
+		if redirectURL != "" {
+			u, err := url.Parse(redirectURL)
+			if err == nil {
+				recId := u.Query().Get("id")
+				if recId != "" {
+					// Use the improved decoder which handles the reverse + base64 logic
+					decoded, err := utils.DecodeAdLink(recId)
+					if err == nil && strings.HasPrefix(decoded, "magnet:") {
+						logging.Debug().Str("magnet", decoded).Str("from", redirectURL).Msg("Extracted magnet using spider logic")
+						magnetLinks = append(magnetLinks, ExtractedMagnet{Link: decoded, Context: ctxStr})
+					}
+				}
+			}
+		}
+
+		// Look for magnet links in the resolved page (direct magnets fallback)
+		doc.Find("a[href^=\"magnet:\"]").Each(func(_ int, elem *goquery.Selection) {
+			if magnet, ok := elem.Attr("href"); ok && strings.HasPrefix(magnet, "magnet:") {
+				logging.Debug().Str("magnet", magnet).Str("href", href).Msg("Extracted magnet from resolved ad link")
+				magnetLinks = append(magnetLinks, ExtractedMagnet{Link: magnet, Context: ctxStr})
 			}
 		})
-	}
+	})
 
 	var audio []schema.Audio
 	var year string
 	var size []string
+	var allText strings.Builder
 	article.Find("div.content p").Each(func(i int, s *goquery.Selection) {
 		// pattern:
 		// Título Traduzido: Fundação
@@ -183,6 +267,7 @@ func getTorrentsBluDV(ctx context.Context, i *Indexer, link, referer string) ([]
 		// Duração: 59 Min.
 		// Servidor: Torrent
 		text := s.Text()
+		allText.WriteString(text + "\n")
 
 		audio = append(audio, findAudioFromText(text)...)
 		y := findYearFromText(text, title)
@@ -202,14 +287,15 @@ func getTorrentsBluDV(ctx context.Context, i *Indexer, link, referer string) ([]
 		}
 	})
 
-	size = utils.StableUniq(size)
+	// // size = utils.StableUniq(size) // Fixed bug: do not deduplicate sizes // Fixed bug: do not deduplicate sizes
 
 	var chanIndexedTorrent = make(chan schema.IndexedTorrent)
 
 	// for each magnet link, create a new indexed torrent
-	for it, magnetLink := range magnetLinks {
+	for it, magnetInfo := range magnetLinks {
 		it := it
-		go func(it int, magnetLink string) {
+		go func(it int, magnetInfo ExtractedMagnet) {
+			magnetLink := magnetInfo.Link
 			magnet, err := magnet.ParseMagnetUri(magnetLink)
 			if err != nil {
 				logging.Error().Err(err).Str("magnet_link", magnetLink).Msg("Failed to parse magnet URI")
@@ -225,11 +311,32 @@ func getTorrentsBluDV(ctx context.Context, i *Indexer, link, referer string) ([]
 			}
 
 			title := processTitle(title, magnetAudio)
+			
+			if releaseTitle == "" {
+				releaseTitle = title
+			}
+
+			var ctxCln string
+			if magnetInfo.Context != "" {
+				ctxCln = strings.TrimSpace(magnetInfo.Context)
+			}
 
 			// if the number of sizes is equal to the number of magnets, then assign the size to each indexed torrent in order
 			var mySize string
 			if len(size) == len(magnetLinks) {
 				mySize = size[it]
+			} else if len(size) > 0 {
+				if it < len(size) {
+					mySize = size[it]
+				} else {
+					mySize = size[0]
+				}
+			} else if len(size) > 0 {
+				if it < len(size) {
+					mySize = size[it]
+				} else {
+					mySize = size[0]
+				}
 			}
 			if mySize == "" {
 				go func() {
@@ -251,9 +358,13 @@ func getTorrentsBluDV(ctx context.Context, i *Indexer, link, referer string) ([]
 				LeechCount:    peer,
 				SeedCount:     seed,
 				Size:          mySize,
+				Context:       ctxCln,
 			}
+			
+			extractExtendedMetadata(allText.String(), &ixt)
+			
 			chanIndexedTorrent <- ixt
-		}(it, magnetLink)
+		}(it, magnetInfo)
 	}
 
 	for i := 0; i < len(magnetLinks); i++ {

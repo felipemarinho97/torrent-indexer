@@ -115,22 +115,30 @@ func getTorrentsRedeTorrent(ctx context.Context, i *Indexer, link, referer strin
 	}
 
 	article := doc.Find(".conteudo")
-	// title pattern: "Something - optional balbla (dddd) some shit" - extract "Something" and "dddd"
-	titleRe := regexp.MustCompile(`^(.*?)(?: - (.*?))? \((\d{4})\)`)
-	titleP := titleRe.FindStringSubmatch(article.Find("h1").Text())
-	if len(titleP) < 3 {
+	rawTitle := strings.TrimSpace(article.Find("h1").Text())
+	if rawTitle == "" {
 		return nil, fmt.Errorf("could not extract title from %s", link)
 	}
-	title := strings.TrimSpace(titleP[1])
-	year := strings.TrimSpace(titleP[3])
+	title := rawTitle
+	year := ""
+	
+	titleRe := regexp.MustCompile(`^(.*?)(?: - (.*?))? \((\d{4})\)`)
+	titleP := titleRe.FindStringSubmatch(rawTitle)
+	if len(titleP) >= 4 {
+		title = strings.TrimSpace(titleP[1])
+		year = strings.TrimSpace(titleP[3])
+	} else if len(titleP) >= 2 {
+		title = strings.TrimSpace(titleP[1])
+	}
 
 	textContent := article.Find(".apenas_itemprop")
 	date := getPublishedDateFromMeta(doc)
 	magnets := textContent.Find("a[href^=\"magnet\"]")
-	var magnetLinks []string
+	var magnetLinks []ExtractedMagnet
 	magnets.Each(func(i int, s *goquery.Selection) {
 		magnetLink, _ := s.Attr("href")
-		magnetLinks = append(magnetLinks, magnetLink)
+		ctxStr := ExtractMagnetContext(s)
+		magnetLinks = append(magnetLinks, ExtractedMagnet{Link: magnetLink, Context: ctxStr})
 	})
 
 	var audio []schema.Audio
@@ -196,14 +204,15 @@ func getTorrentsRedeTorrent(ctx context.Context, i *Indexer, link, referer strin
 		}
 	})
 
-	size = utils.StableUniq(size)
+	// size = utils.StableUniq(size) // Fixed bug: do not deduplicate sizes
 
 	var chanIndexedTorrent = make(chan schema.IndexedTorrent)
 
 	// for each magnet link, create a new indexed torrent
-	for it, magnetLink := range magnetLinks {
+	for it, magnetInfo := range magnetLinks {
 		it := it
-		go func(it int, magnetLink string) {
+		go func(it int, magnetInfo ExtractedMagnet) {
+			magnetLink := magnetInfo.Link
 			magnet, err := magnet.ParseMagnetUri(magnetLink)
 			if err != nil {
 				logging.Error().Err(err).Str("magnet_link", magnetLink).Msg("Failed to parse magnet URI")
@@ -219,11 +228,22 @@ func getTorrentsRedeTorrent(ctx context.Context, i *Indexer, link, referer strin
 			}
 
 			title := processTitle(title, magnetAudio)
+			
+			var ctxCln string
+			if magnetInfo.Context != "" {
+				ctxCln = strings.TrimSpace(magnetInfo.Context)
+			}
 
 			// if the number of sizes is equal to the number of magnets, then assign the size to each indexed torrent in order
 			var mySize string
 			if len(size) == len(magnetLinks) {
 				mySize = size[it]
+			} else if len(size) > 0 {
+				if it < len(size) {
+					mySize = size[it]
+				} else {
+					mySize = size[0]
+				}
 			}
 			if mySize == "" {
 				go func() {
@@ -245,9 +265,28 @@ func getTorrentsRedeTorrent(ctx context.Context, i *Indexer, link, referer strin
 				LeechCount:    peer,
 				SeedCount:     seed,
 				Size:          mySize,
+				Context:       ctxCln,
 			}
+			
+			// Pass raw texts collected earlier to extract advanced Betor metadata
+			var allText strings.Builder
+			article.Find("div#informacoes > p").Each(func(i int, s *goquery.Selection) {
+				htmlContent, _ := s.Html()
+				htmlContent = strings.ReplaceAll(htmlContent, "\n", "")
+				htmlContent = strings.ReplaceAll(htmlContent, "\t", "")
+				brRe := regexp.MustCompile(`<br\s*\/?>`)
+				htmlContent = brRe.ReplaceAllString(htmlContent, "<br>")
+				lines := strings.Split(htmlContent, "<br>")
+				for _, line := range lines {
+					re := regexp.MustCompile(`<[^>]*>`)
+					line = re.ReplaceAllString(line, "")
+					allText.WriteString(strings.TrimSpace(line) + "\n")
+				}
+			})
+			extractExtendedMetadata(allText.String(), &ixt)
+			
 			chanIndexedTorrent <- ixt
-		}(it, magnetLink)
+		}(it, magnetInfo)
 	}
 
 	for i := 0; i < len(magnetLinks); i++ {

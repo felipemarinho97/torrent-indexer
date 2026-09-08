@@ -249,10 +249,12 @@ func getTorrentsVacaTorrent(ctx context.Context, i *Indexer, link, referer strin
 	var date time.Time
 
 	date = getPublishedDateFromMeta(doc)
+	var allText strings.Builder
 
 	doc.Find(".col-left ul li, .content p").Each(func(_ int, s *goquery.Selection) {
 		text := s.Text()
 		html, _ := s.Html()
+		allText.WriteString(text + "\n")
 
 		// Extract Year
 		if year == "" {
@@ -300,10 +302,11 @@ func getTorrentsVacaTorrent(ctx context.Context, i *Indexer, link, referer strin
 	}
 
 	// Extract magnet links
-	var magnetLinks []string
+	var magnetLinks []ExtractedMagnet
 	doc.Find("a[href^=\"magnet\"]").Each(func(_ int, s *goquery.Selection) {
 		magnetLink, _ := s.Attr("href")
-		magnetLinks = append(magnetLinks, magnetLink)
+		ctxStr := ExtractMagnetContext(s)
+		magnetLinks = append(magnetLinks, ExtractedMagnet{Link: magnetLink, Context: ctxStr})
 	})
 
 	doc.Find(".area-links-download a").Each(func(_ int, s *goquery.Selection) {
@@ -316,8 +319,9 @@ func getTorrentsVacaTorrent(ctx context.Context, i *Indexer, link, referer strin
 				queryID := u.Query().Get("id")
 				if queryID != "" {
 					magnetLink, err := soraFetcher.FetchLink(ctx, queryID)
+					ctxStr := ExtractMagnetContext(s)
 					if err == nil && magnetLink != "" {
-						magnetLinks = append(magnetLinks, magnetLink)
+						magnetLinks = append(magnetLinks, ExtractedMagnet{Link: magnetLink, Context: ctxStr})
 					}
 				}
 			}
@@ -341,21 +345,23 @@ func getTorrentsVacaTorrent(ctx context.Context, i *Indexer, link, referer strin
 				if err == nil {
 					commentDoc.Find("a[href^=\"magnet\"]").Each(func(_ int, s *goquery.Selection) {
 						magnetLink, _ := s.Attr("href")
-						magnetLinks = append(magnetLinks, magnetLink)
+						ctxStr := ExtractMagnetContext(s)
+						magnetLinks = append(magnetLinks, ExtractedMagnet{Link: magnetLink, Context: ctxStr})
 					})
 				}
 			}
 		}
 	})
 
-	size = utils.StableUniq(size)
+	// size = utils.StableUniq(size) // Fixed bug: do not deduplicate sizes
 
 	var chanIndexedTorrent = make(chan schema.IndexedTorrent)
 
 	// for each magnet link, create a new indexed torrent
-	for it, magnetLink := range magnetLinks {
+	for it, magnetInfo := range magnetLinks {
 		it := it
-		go func(it int, magnetLink string) {
+		go func(it int, magnetInfo ExtractedMagnet) {
+			magnetLink := magnetInfo.Link
 			magnet, err := magnet.ParseMagnetUri(magnetLink)
 			if err != nil {
 				logging.Error().Err(err).Str("magnet_link", magnetLink).Msg("Failed to parse magnet URI")
@@ -373,11 +379,22 @@ func getTorrentsVacaTorrent(ctx context.Context, i *Indexer, link, referer strin
 			}
 
 			processedTitle := processVacaTorrentTitle(title, magnetAudio, season)
+			
+			var ctxCln string
+			if magnetInfo.Context != "" {
+				ctxCln = strings.TrimSpace(magnetInfo.Context)
+			}
 
 			// if the number of sizes is equal to the number of magnets, then assign the size to each indexed torrent in order
 			var mySize string
 			if len(size) == len(magnetLinks) {
 				mySize = size[it]
+			} else if len(size) > 0 {
+				if it < len(size) {
+					mySize = size[it]
+				} else {
+					mySize = size[0]
+				}
 			}
 			if mySize == "" {
 				go func() {
@@ -399,9 +416,13 @@ func getTorrentsVacaTorrent(ctx context.Context, i *Indexer, link, referer strin
 				LeechCount:    peer,
 				SeedCount:     seed,
 				Size:          mySize,
+				Context:       ctxCln,
 			}
+			
+			extractExtendedMetadata(allText.String(), &ixt)
+			
 			chanIndexedTorrent <- ixt
-		}(it, magnetLink)
+		}(it, magnetInfo)
 	}
 
 	for i := 0; i < len(magnetLinks); i++ {

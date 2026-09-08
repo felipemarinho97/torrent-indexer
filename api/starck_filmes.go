@@ -126,25 +126,28 @@ func getTorrentStarckFilmes(ctx context.Context, i *Indexer, link, referer strin
 	title := capa.Find(".post-description > h2").Text()
 	post_buttons := post.Find(".post-buttons")
 	magnets := post_buttons.Find("a[href^=\"magnet\"]")
-	var magnetLinks []string
+	var magnetLinks []ExtractedMagnet
 	magnets.Each(func(i int, s *goquery.Selection) {
 		magnetLink, _ := s.Attr("href")
-		magnetLinks = append(magnetLinks, magnetLink)
+		ctxStr := ExtractMagnetContext(s)
+		magnetLinks = append(magnetLinks, ExtractedMagnet{Link: magnetLink, Context: ctxStr})
 	})
 	dataUs := post_buttons.Find("a[data-u]")
 	dataUs.Each(func(i int, s *goquery.Selection) {
 		dataU, _ := s.Attr("data-u")
 		magnetLink, err := utils.DecodeStarckDataU(dataU)
+		ctxStr := ExtractMagnetContext(s)
 		if err != nil {
 			logging.Warn().Err(err).Str("data_u", dataU).Msg("Failed to decode data-u attribute, skipping")
 			return
 		}
-		magnetLinks = append(magnetLinks, magnetLink)
+		magnetLinks = append(magnetLinks, ExtractedMagnet{Link: magnetLink, Context: ctxStr})
 	})
 
 	var audio []schema.Audio
 	var year string
 	var size []string
+	var allText strings.Builder
 	capa.Find(".post-description p").Each(func(i int, s *goquery.Selection) {
 		// pattern:
 		// Nome Original: 28 Weeks Later
@@ -162,25 +165,30 @@ func getTorrentStarckFilmes(ctx context.Context, i *Indexer, link, referer strin
 			text.WriteString(span.Text())
 			text.WriteString(" ")
 		})
-		audio = append(audio, findAudioFromText(text.String())...)
-		y := findYearFromText(text.String(), title)
+		
+		textStr := text.String()
+		allText.WriteString(textStr + "\n")
+		
+		audio = append(audio, findAudioFromText(textStr)...)
+		y := findYearFromText(textStr, title)
 		if y != "" {
 			year = y
 		}
-		size = append(size, findSizesFromText(text.String())...)
+		size = append(size, findSizesFromText(textStr)...)
 	})
 
 	// TODO: find any link from imdb
 	imdbLink := ""
 
-	size = utils.StableUniq(size)
+	// size = utils.StableUniq(size) // Fixed bug: do not deduplicate sizes
 
 	var chanIndexedTorrent = make(chan schema.IndexedTorrent)
 
 	// for each magnet link, create a new indexed torrent
-	for it, magnetLink := range magnetLinks {
+	for it, magnetInfo := range magnetLinks {
 		it := it
-		go func(it int, magnetLink string) {
+		go func(it int, magnetInfo ExtractedMagnet) {
+			magnetLink := magnetInfo.Link
 			magnet, err := magnet.ParseMagnetUri(magnetLink)
 			if err != nil {
 				logging.Error().Err(err).Str("magnet_link", magnetLink).Msg("Failed to parse magnet URI")
@@ -209,11 +217,22 @@ func getTorrentStarckFilmes(ctx context.Context, i *Indexer, link, referer strin
 			}
 
 			title := processTitle(title, magnetAudio)
+			
+			var ctxCln string
+			if magnetInfo.Context != "" {
+				ctxCln = strings.TrimSpace(magnetInfo.Context)
+			}
 
 			// if the number of sizes is equal to the number of magnets, then assign the size to each indexed torrent in order
 			var mySize string
 			if len(size) == len(magnetLinks) {
 				mySize = size[it]
+			} else if len(size) > 0 {
+				if it < len(size) {
+					mySize = size[it]
+				} else {
+					mySize = size[0]
+				}
 			}
 			if mySize == "" {
 				go func() {
@@ -235,9 +254,13 @@ func getTorrentStarckFilmes(ctx context.Context, i *Indexer, link, referer strin
 				LeechCount:    peer,
 				SeedCount:     seed,
 				Size:          mySize,
+				Context:       ctxCln,
 			}
+			
+			extractExtendedMetadata(allText.String(), &ixt)
+			
 			chanIndexedTorrent <- ixt
-		}(it, magnetLink)
+		}(it, magnetInfo)
 	}
 
 	for i := 0; i < len(magnetLinks); i++ {

@@ -69,12 +69,8 @@ func (c *MetadataClient) FetchMetadata(ctx context.Context, magnetURI string) (*
 		return nil, fmt.Errorf("failed to parse magnet URI: %w", err)
 	}
 	cacheKey := fmt.Sprintf("metadata:%s", m.InfoHash)
-	cachedData, err := c.c.Get(ctx, cacheKey)
-	if err == nil && cachedData != nil {
-		var cachedMetadata MetadataResponse
-		if err := json.Unmarshal(cachedData, &cachedMetadata); err == nil {
-			return &cachedMetadata, nil
-		}
+	if cachedMetadata := c.GetCachedMetadata(ctx, m.InfoHash.String()); cachedMetadata != nil {
+		return cachedMetadata, nil
 	}
 
 	reqBody := MetadataRequest{MagnetURI: magnetURI}
@@ -112,4 +108,19 @@ func (c *MetadataClient) FetchMetadata(ctx context.Context, magnetURI string) (*
 	}
 
 	return &metadata, nil
+}
+
+func (c *MetadataClient) GetCachedMetadata(ctx context.Context, infoHash string) *MetadataResponse {
+	if !c.IsEnabled() {
+		return nil
+	}
+	cacheKey := fmt.Sprintf("metadata:%s", infoHash)
+	cachedData, err := c.c.Get(ctx, cacheKey)
+	if err == nil && cachedData != nil {
+		var cachedMetadata MetadataResponse
+		if err := json.Unmarshal(cachedData, &cachedMetadata); err == nil {
+			return &cachedMetadata
+		}
+	}
+	return nil
 }

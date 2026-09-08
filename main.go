@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	handler "github.com/felipemarinho97/torrent-indexer/api"
@@ -25,6 +26,40 @@ func main() {
 
 	redis := cache.NewRedis()
 	searchIndex := meilisearch.NewSearchIndexer(os.Getenv("MEILISEARCH_ADDRESS"), os.Getenv("MEILISEARCH_KEY"), "torrents")
+	
+	// Configure searchable attributes asynchronously
+	go func() {
+		for i := 0; i < 10; i++ {
+			if searchIndex.IsHealthy() {
+				err := searchIndex.UpdateSearchableAttributes([]string{"imdb", "title", "original_title", "context", "files.path"})
+				if err != nil {
+					logging.Error().Err(err).Msg("Failed to update searchable attributes in Meilisearch")
+				} else {
+					logging.Info().Msg("Successfully updated searchable attributes in Meilisearch")
+				}
+
+				err = searchIndex.UpdateSynonyms(map[string][]string{
+					"the": {"o", "a", "os", "as"},
+					"o":   {"the"},
+					"a":   {"the"},
+					"os":  {"the"},
+					"as":  {"the"},
+					"do":  {"of", "from"},
+					"da":  {"of", "from"},
+					"de":  {"of"},
+					"of":  {"do", "da", "de"},
+				})
+				if err != nil {
+					logging.Error().Err(err).Msg("Failed to update synonyms in Meilisearch")
+				} else {
+					logging.Info().Msg("Successfully updated synonyms in Meilisearch")
+				}
+				break
+			}
+			time.Sleep(5 * time.Second)
+		}
+	}()
+
 	var magnetMetadataAPI *magnet.MetadataClient
 	if os.Getenv("MAGNET_METADATA_API_ENABLED") == "true" {
 		timeout := 10 * time.Second
@@ -76,8 +111,16 @@ func main() {
 		logging.Error().Err(err).Msg("Failed to parse long-lived cache expiration")
 	}
 
+	disabledIndexers := make(map[string]bool)
+	if disabledEnv := os.Getenv("TORRENT_INDEXER_DISABLED_INDEXERS"); disabledEnv != "" {
+		for _, name := range strings.Split(disabledEnv, ",") {
+			disabledIndexers[strings.TrimSpace(name)] = true
+		}
+	}
+
 	icfg := handler.IndexersConfig{
 		FallbackTitleEnabled: os.Getenv("FALLBACK_TITLE_ENABLED") == "true",
+		DisabledIndexers:     disabledIndexers,
 	}
 
 	indexers := handler.NewIndexers(icfg, redis, metrics, req, searchIndex, magnetMetadataAPI)
@@ -86,14 +129,15 @@ func main() {
 	indexerMux := http.NewServeMux()
 	metricsMux := http.NewServeMux()
 
-	indexerMux.HandleFunc("/", handler.HandlerIndex)
-	indexerMux.HandleFunc("/indexers/bludv", indexers.HandlerBluDVIndexer)
-	indexerMux.HandleFunc("/indexers/comando_torrents", indexers.HandlerComandoIndexer)
-	indexerMux.HandleFunc("/indexers/rede_torrent", indexers.HandlerRedeTorrentIndexer)
-	indexerMux.HandleFunc("/indexers/starck-filmes", indexers.HandlerStarckFilmesIndexer)
-	indexerMux.HandleFunc("/indexers/torrent-dos-filmes", indexers.HandlerTorrentDosFilmesIndexer)
-	indexerMux.HandleFunc("/indexers/vaca_torrent", indexers.HandlerVacaTorrentIndexer)
-	indexerMux.HandleFunc("/indexers/manual", indexers.HandlerManualIndexer)
+	indexerMux.HandleFunc("/", indexers.HandlerIndex)
+	indexerMux.HandleFunc("/indexers/all", handler.WithMultiQuery(indexers.HandlerMultiIndexers))
+	indexerMux.HandleFunc("/indexers/search", handler.WithMultiQuery(indexers.HandlerMultiIndexers))
+	indexerMux.HandleFunc("/indexers/manual", handler.WithMultiQuery(indexers.HandlerManualIndexer))
+
+	// Register all configured indexers dynamically
+	for name, h := range indexers.GetAllHandlersMap() {
+		indexerMux.HandleFunc("/indexers/"+name, handler.WithMultiQuery(h))
+	}
 	indexerMux.HandleFunc("/search", search.SearchTorrentHandler)
 	indexerMux.HandleFunc("/search/health", search.HealthHandler)
 	indexerMux.HandleFunc("/search/stats", search.StatsHandler)

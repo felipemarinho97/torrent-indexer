@@ -22,6 +22,9 @@ services:
       # - MAGNET_METADATA_API_ENABLED=false
       # - MAGNET_METADATA_API_ADDRESS=http://magnet-metadata-api:8080
       # - MAGNET_METADATA_API_TIMEOUT_SECONDS=10
+
+      ## Optional: Add extended metadata (duration, quality, genres, etc.) to search results
+      # - ENABLE_EXTENDED_METADATA=false
   
   redis:
     image: redis:alpine
@@ -55,7 +58,8 @@ services:
   #   restart: unless-stopped
   #   ports:
   #     - "8999:8080"
-  #     - "42069:42069"
+  #     - "42069:42069/tcp"
+  #     - "42069:42069/udp"
   #   networks:
   #     - indexer
   #   environment:

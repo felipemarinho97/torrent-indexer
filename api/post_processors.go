@@ -3,11 +3,14 @@ package handler
 import (
 	"fmt"
 	"net/http"
+	"os"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
 
 	"github.com/felipemarinho97/torrent-indexer/logging"
+	"github.com/felipemarinho97/torrent-indexer/magnet"
 	"github.com/felipemarinho97/torrent-indexer/schema"
 	"github.com/felipemarinho97/torrent-indexer/utils"
 	"github.com/hbollon/go-edlib"
@@ -60,37 +63,35 @@ func FullfilMissingMetadata(i *Indexer, r *http.Request, torrents []schema.Index
 	}
 
 	return utils.ParallelFlatMap(torrents, func(it schema.IndexedTorrent) ([]schema.IndexedTorrent, error) {
-		if it.Size != "" && it.Title != "" && it.OriginalTitle != "" {
-			return []schema.IndexedTorrent{it}, nil
-		}
-		m, err := i.magnetMetadataAPI.FetchMetadata(r.Context(), it.MagnetLink)
-		if err != nil {
-			return []schema.IndexedTorrent{it}, nil
-		}
-
-		// convert size in bytes to a human-readable format
-		it.Size = utils.FormatBytes(m.Size)
-
-		// Use name from metadata if available as it is more accurate
-		if m.Name != "" {
-			it.Title = m.Name
-		}
-		logging.Debug().Str("info_hash", m.InfoHash).Str("size", it.Size).Msg("Retrieved metadata from MagnetMetadataAPI")
-
-		// If files are present, add them to the indexed torrent
-		if len(m.Files) > 0 {
-			it.Files = make([]schema.File, len(m.Files))
-			for i, file := range m.Files {
-				it.Files[i] = schema.File{
-					Path: file.Path,
-					Size: utils.FormatBytes(file.Size),
+		populateFromMetadata := func(m *magnet.MetadataResponse) {
+			if it.Size == "" {
+				it.Size = utils.FormatBytes(m.Size)
+			}
+			if it.Title == "" && m.Name != "" {
+				it.Title = m.Name
+			}
+			if len(m.Files) > 0 {
+				it.Files = make([]schema.File, len(m.Files))
+				for i, file := range m.Files {
+					it.Files[i] = schema.File{
+						Path: file.Path,
+						Size: utils.FormatBytes(file.Size),
+					}
 				}
+			}
+			if it.Date.IsZero() {
+				it.Date = m.CreatedAt
 			}
 		}
 
-		// If "date" is zero, use the date from metadata if available
-		if it.Date.IsZero() {
-			it.Date = m.CreatedAt
+		if m := i.magnetMetadataAPI.GetCachedMetadata(r.Context(), it.InfoHash); m != nil {
+			populateFromMetadata(m)
+		} else if it.Size == "" || it.Title == "" || it.OriginalTitle == "" {
+			m, err := i.magnetMetadataAPI.FetchMetadata(r.Context(), it.MagnetLink)
+			if err == nil {
+				logging.Debug().Str("info_hash", m.InfoHash).Str("size", it.Size).Msg("Retrieved metadata from MagnetMetadataAPI")
+				populateFromMetadata(m)
+			}
 		}
 
 		return []schema.IndexedTorrent{it}, nil
@@ -279,4 +280,48 @@ func FilterBy(_ *Indexer, r *http.Request, torrents []schema.IndexedTorrent) []s
 
 		return true
 	})
+}
+
+// StripExtendedMetadata removes extended metadata fields if the user has not explicitly enabled them.
+func StripExtendedMetadata(_ *Indexer, _ *http.Request, torrents []schema.IndexedTorrent) []schema.IndexedTorrent {
+	if os.Getenv("ENABLE_EXTENDED_METADATA") == "true" {
+		return torrents
+	}
+
+	for i := range torrents {
+		torrents[i].Genres = nil
+		torrents[i].Subtitles = nil
+		torrents[i].Duration = ""
+		torrents[i].Classification = ""
+		torrents[i].Quality = ""
+		torrents[i].VideoQuality = ""
+		torrents[i].AudioQuality = ""
+		torrents[i].Files = nil
+		torrents[i].Similarity = 0
+		// Note: We leave 'Context' intact as it is small and universally useful.
+	}
+
+	return torrents
+}
+
+// ParseTitleMetadata extracts metadata from the title (like Resolution and Quality) if they are missing
+func ParseTitleMetadata(_ *Indexer, _ *http.Request, torrents []schema.IndexedTorrent) []schema.IndexedTorrent {
+	resRegex := regexp.MustCompile(`(?i)(1080p|720p|2160p|4K|1080|720)`)
+	qualRegex := regexp.MustCompile(`(?i)(WEB-DL|WEBRip|BluRay|HDTV|CAM|TS)`)
+
+	for i, t := range torrents {
+		// Attempt to extract resolution from Title
+		if t.VideoQuality == "" {
+			if match := resRegex.FindStringSubmatch(t.Title); len(match) > 0 {
+				torrents[i].VideoQuality = strings.ToUpper(match[1])
+			}
+		}
+		// Attempt to extract quality from Title
+		if t.Quality == "" {
+			if match := qualRegex.FindStringSubmatch(t.Title); len(match) > 0 {
+				torrents[i].Quality = strings.ToUpper(match[1])
+			}
+		}
+	}
+	return torrents
 }

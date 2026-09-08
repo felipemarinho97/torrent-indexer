@@ -58,6 +58,7 @@ You can configure the server using the following environment variables:
 - `MAGNET_METADATA_API_ENABLED`: (optional) Enable the magnet metadata API. (deploy instrucitons [here](https://github.com/felipemarinho97/magnet-metadata-api)) Default: `false`
 - `MAGNET_METADATA_API_ADDRESS`: (optional) The address of your magnet metadata API. Default: `N/A`
 - `MAGNET_METADATA_API_TIMEOUT_SECONDS`: (optional) The timeout for the magnet metadata API requests in seconds. Default: `10`
+- `ENABLE_EXTENDED_METADATA`: (optional) Include extensive fields in search responses (e.g., duration, audio/video quality, parsed subtitles, genres). Highly useful but consumes more storage if Meilisearch/Redis is used. Default: `false`
 - `INDEXER_<NAME>_URL`: (optional) Set a custom URL for the indexer. Where the "NAME" will be always uppercase indexer key with underscores. ex: `INDEXER_DODO_FILMES_URL=https://my-proxied-dodo-url.org`
 ## Integrating with Jackett
 

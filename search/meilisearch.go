@@ -226,3 +226,65 @@ func (t *SearchIndexer) GetDocumentCount() (int64, error) {
 	}
 	return stats.NumberOfDocuments, nil
 }
+
+// UpdateSearchableAttributes configures which fields Meilisearch uses for full-text search.
+func (t *SearchIndexer) UpdateSearchableAttributes(attributes []string) error {
+	url := fmt.Sprintf("%s/indexes/%s/settings/searchable-attributes", t.BaseURL, t.IndexName)
+
+	jsonData, err := json.Marshal(attributes)
+	if err != nil {
+		return fmt.Errorf("failed to marshal searchable attributes: %w", err)
+	}
+
+	req, err := http.NewRequest("PUT", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if t.APIKey != "" {
+		req.Header.Set("Authorization", "Bearer "+t.APIKey)
+	}
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to execute request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		return fmt.Errorf("meilisearch returned status %d", resp.StatusCode)
+	}
+	return nil
+}
+
+// UpdateSynonyms configures synonym mappings in Meilisearch for better search results.
+func (t *SearchIndexer) UpdateSynonyms(synonyms map[string][]string) error {
+	url := fmt.Sprintf("%s/indexes/%s/settings/synonyms", t.BaseURL, t.IndexName)
+
+	jsonData, err := json.Marshal(synonyms)
+	if err != nil {
+		return fmt.Errorf("failed to marshal synonyms: %w", err)
+	}
+
+	req, err := http.NewRequest("PUT", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if t.APIKey != "" {
+		req.Header.Set("Authorization", "Bearer "+t.APIKey)
+	}
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to execute request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		return fmt.Errorf("meilisearch returned status %d", resp.StatusCode)
+	}
+	return nil
+}
