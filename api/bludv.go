@@ -120,9 +120,16 @@ func getTorrentsBluDV(ctx context.Context, i *Indexer, link, referer string) ([]
 	date := getPublishedDate(doc)
 	magnets := textContent.Find("a[href^=\"magnet\"]")
 	var magnetLinks []string
+	// magnetSizes holds the size found right next to each magnet (1:1 with
+	// magnetLinks). BluDV posts with multiple versions list one size per
+	// download button ("SERVIDOR PARA DOWNLOAD ... (X GB)"), so reading it
+	// per-magnet is reliable even when the global "Tamanho:" field lists
+	// several sizes. Empty when none is found (falls back below).
+	var magnetSizes []string
 	magnets.Each(func(i int, s *goquery.Selection) {
 		magnetLink, _ := s.Attr("href")
 		magnetLinks = append(magnetLinks, magnetLink)
+		magnetSizes = append(magnetSizes, findSizeNearMagnet(s))
 	})
 
 	adwareDomains := []string{
@@ -152,6 +159,7 @@ func getTorrentsBluDV(ctx context.Context, i *Indexer, link, referer string) ([]
 			// if decoded magnet link is indeed a magnet link, append it
 			if strings.HasPrefix(magnetLinkDecoded, "magnet:") {
 				magnetLinks = append(magnetLinks, magnetLinkDecoded)
+				magnetSizes = append(magnetSizes, findSizeNearMagnet(s))
 			} else if !strings.Contains(magnetLinkDecoded, "watch.brplayer") {
 				logging.Warn().
 					Str("href", href).
@@ -226,9 +234,15 @@ func getTorrentsBluDV(ctx context.Context, i *Indexer, link, referer string) ([]
 
 			title := processTitle(title, magnetAudio)
 
-			// if the number of sizes is equal to the number of magnets, then assign the size to each indexed torrent in order
+			// Prefer the size found right next to this magnet. This is robust
+			// for multi-version posts where the global "Tamanho:" field carries
+			// several sizes (so the count-based mapping below cannot line up).
 			var mySize string
-			if len(size) == len(magnetLinks) {
+			if it < len(magnetSizes) && magnetSizes[it] != "" {
+				mySize = magnetSizes[it]
+			} else if len(size) == len(magnetLinks) {
+				// fallback: if the number of sizes is equal to the number of
+				// magnets, assign the size to each indexed torrent in order
 				mySize = size[it]
 			}
 			if mySize == "" {
