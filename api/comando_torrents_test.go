@@ -32,6 +32,14 @@ func Test_parseLocalizedDate(t *testing.T) {
 			want:    time.Date(2022, 10, 1, 0, 0, 0, 0, time.UTC),
 			wantErr: false,
 		},
+		{
+			name: "should return date single digit day and month",
+			args: args{
+				datePublished: "4 de março de 2026",
+			},
+			want:    time.Date(2026, 3, 4, 0, 0, 0, 0, time.UTC),
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

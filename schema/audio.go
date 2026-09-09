@@ -278,6 +278,6 @@ func (a Audio) toTag() string {
 	case AudioMarathi:
 		return "mar"
 	default:
-		return ""
+		return string(a)
 	}
 }

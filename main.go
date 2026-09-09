@@ -1,13 +1,18 @@
 package main
 
 import (
+	"fmt"
+	"maps"
 	"net/http"
 	"os"
+	"slices"
 	"strconv"
 	"time"
 
 	handler "github.com/felipemarinho97/torrent-indexer/api"
 	"github.com/felipemarinho97/torrent-indexer/cache"
+	"github.com/felipemarinho97/torrent-indexer/indexers/custom"
+	"github.com/felipemarinho97/torrent-indexer/indexers/engine"
 	"github.com/felipemarinho97/torrent-indexer/logging"
 	"github.com/felipemarinho97/torrent-indexer/magnet"
 	"github.com/felipemarinho97/torrent-indexer/monitoring"
@@ -72,8 +77,6 @@ func main() {
 	if err == nil {
 		logging.Info().Dur("expiration", longLivedCacheExpiration).Msg("Setting long-lived cache expiration")
 		redis.SetDefaultExpiration(longLivedCacheExpiration)
-	} else {
-		logging.Error().Err(err).Msg("Failed to parse long-lived cache expiration")
 	}
 
 	icfg := handler.IndexersConfig{
@@ -86,14 +89,30 @@ func main() {
 	indexerMux := http.NewServeMux()
 	metricsMux := http.NewServeMux()
 
-	indexerMux.HandleFunc("/", handler.HandlerIndex)
-	indexerMux.HandleFunc("/indexers/bludv", indexers.HandlerBluDVIndexer)
-	indexerMux.HandleFunc("/indexers/comando_torrents", indexers.HandlerComandoIndexer)
-	indexerMux.HandleFunc("/indexers/rede_torrent", indexers.HandlerRedeTorrentIndexer)
-	indexerMux.HandleFunc("/indexers/starck-filmes", indexers.HandlerStarckFilmesIndexer)
-	indexerMux.HandleFunc("/indexers/torrent-dos-filmes", indexers.HandlerTorrentDosFilmesIndexer)
-	indexerMux.HandleFunc("/indexers/vaca_torrent", indexers.HandlerVacaTorrentIndexer)
-	indexerMux.HandleFunc("/indexers/manual", indexers.HandlerManualIndexer)
+	// build the indexer registry
+	reg := engine.NewRegistry()
+	custom.RegisterCustomIndexers(reg, indexers)
+
+	customDefsDir := os.Getenv("INDEXER_DEFINITIONS_DIR")
+	engineInstances, err := engine.Load(customDefsDir, indexers, redis, metrics, req, searchIndex, magnetMetadataAPI)
+	if err != nil {
+		logging.Warn().Err(err).Str("custom_defs_dir", customDefsDir).Msg("Could not load YAML indexer definitions")
+	} else {
+		for _, e := range engineInstances {
+			reg.Register(e)
+			logging.Info().Str("id", e.ID()).Msg("Registered YAML indexer")
+		}
+	}
+
+	// mount all registered engines under /indexers/<id>.
+	engines := reg.All()
+	for id, e := range engines {
+		id, e := id, e // capture loop vars
+		indexerMux.HandleFunc(fmt.Sprintf("/indexers/%s", id), e.Handler())
+	}
+
+	indexerMux.HandleFunc("/", handler.HandlerIndex(slices.Collect(maps.Keys(engines))))
+
 	indexerMux.HandleFunc("/search", search.SearchTorrentHandler)
 	indexerMux.HandleFunc("/search/health", search.HealthHandler)
 	indexerMux.HandleFunc("/search/stats", search.StatsHandler)

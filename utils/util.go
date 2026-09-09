@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/felipemarinho97/torrent-indexer/logging"
+	"github.com/felipemarinho97/torrent-indexer/schema"
 )
 
 // Filter filters a slice based on a predicate function.
@@ -186,4 +187,17 @@ func GetIndexerURLFromEnv(key string, defaultValue string) string {
 		value += "/"
 	}
 	return value
+}
+
+// DeduplicateAudio returns a stable-order deduplicated copy of a []schema.Audio slice.
+func DeduplicateAudio(in []schema.Audio) []schema.Audio {
+	seen := make(map[schema.Audio]struct{}, len(in))
+	out := make([]schema.Audio, 0, len(in))
+	for _, a := range in {
+		if _, ok := seen[a]; !ok {
+			seen[a] = struct{}{}
+			out = append(out, a)
+		}
+	}
+	return out
 }

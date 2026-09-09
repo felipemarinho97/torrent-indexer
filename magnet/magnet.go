@@ -44,6 +44,10 @@ func ParseMagnetUri(uri string) (m Magnet, err error) {
 	m.DisplayName = q.Get("dn")
 	dropFirst(q, "dn")
 	m.Trackers = q["tr"]
+	// trim "tr" values and drop empty ones
+	for i, tr := range m.Trackers {
+		m.Trackers[i] = strings.TrimSpace(tr)
+	}
 	delete(q, "tr")
 	if len(q) == 0 {
 		q = nil

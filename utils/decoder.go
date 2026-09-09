@@ -4,6 +4,11 @@ import (
 	"encoding/base64"
 	"fmt"
 	"html"
+	"net/url"
+	"regexp"
+	"strconv"
+	"strings"
+	"time"
 )
 
 func DecodeAdLink(encodedStr string) (string, error) {
@@ -93,4 +98,51 @@ func DecodeStarckDataU(dataU string) (string, error) {
 
 func IsMagnetLink(link string) bool {
 	return len(link) > 8 && link[:8] == "magnet:?"
+}
+
+// Parse1337xDate parses the 1337x date format "May. 11th '20" and returns
+// an RFC3339 string that extractDateField can parse.
+func Parse1337xDate(raw string) (string, error) {
+	raw = strings.TrimSpace(raw)
+
+	// Strip ordinal suffixes: 1st 2nd 3rd 4th → 1 2 3 4
+	ordinal := regexp.MustCompile(`(\d+)(?:st|nd|rd|th)`)
+	raw = ordinal.ReplaceAllString(raw, "$1")
+
+	// Remove dots from month abbreviations: "May." → "May"
+	raw = strings.ReplaceAll(raw, ".", "")
+
+	// Expand two-digit years: "'20" → "2020", "'95" → "1995"
+	twoDigitYear := regexp.MustCompile(`'(\d{2})`)
+	raw = twoDigitYear.ReplaceAllStringFunc(raw, func(s string) string {
+		yr, _ := strconv.Atoi(strings.TrimPrefix(s, "'"))
+		if yr <= 30 {
+			return fmt.Sprintf("20%02d", yr)
+		}
+		return fmt.Sprintf("19%02d", yr)
+	})
+
+	// Parse: "Jan 2 2006"
+	t, err := time.Parse("Jan 2 2006", strings.TrimSpace(raw))
+	if err != nil {
+		return "", fmt.Errorf("1337x: cannot parse date %q: %w", raw, err)
+	}
+	return t.Format("2006-01-02"), nil
+}
+
+// DecodeBludvAdwareLink helper function to be exported to yaml engine
+func DecodeBludvAdwareLink(raw string) (string, error) {
+	parsedURL, err := url.Parse(raw)
+	if err != nil {
+		return "", err
+	}
+	id := parsedURL.Query().Get("id")
+	decoded, err := DecodeAdLink(id)
+	if err != nil {
+		return "", err
+	}
+	if !IsMagnetLink(decoded) {
+		return "", fmt.Errorf("not a magnet link: %s", decoded)
+	}
+	return decoded, nil
 }

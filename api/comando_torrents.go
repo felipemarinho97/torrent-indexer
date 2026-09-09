@@ -253,7 +253,7 @@ func getTorrents(ctx context.Context, i *Indexer, link, referer string) ([]schem
 }
 
 func parseLocalizedDate(datePublished string) (time.Time, error) {
-	re := regexp.MustCompile(`(\d{1,2}) de (\w+) de (\d{4})`)
+	re := regexp.MustCompile(`(\d{1,2}) de ([^\s]+) de (\d{4})`)
 	matches := re.FindStringSubmatch(datePublished)
 	if len(matches) > 0 {
 		day := matches[1]

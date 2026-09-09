@@ -1,0 +1,78 @@
+# This definition is NOT registered as an active indexer (no route will be
+# created for it) because its URL is empty. It exists purely as a base template.
+
+# id: required
+id: example
+# label: required
+label: example
+# url: required
+url: ""
+# search_pattern: optional - appended to url for searches; use {query} as placeholder
+search_pattern: "?s={query}"
+# page_pattern: optional - used for pagination; use {page} as placeholder
+page_pattern: "page/{page}"
+
+selectors:
+  # item: required - top-level list selector on the listing/search page
+  item: ".post"
+  # post_url: optional - url of the detail page for each item; required when detail_page.enabled is true
+  post_url:
+    - selector: "div.title > a"
+      # attr: optional - html attribute to read (omit to use text content)
+      attr: "href"
+
+  detail_page:
+    # enabled: required - set to false to extract everything from the listing page
+    enabled: true
+    # fields: required when enabled - extracted from the individual post page
+    fields:
+      title:
+        - selector: ".title > h1"
+        - selector: "div.fallback-title h1"
+      audio:
+        - selector: "div.content p"
+          # mappings: optional - enum-style pattern→value pairs applied after regex
+          mappings:
+            - pattern: "(?i)portugu"
+              value: "Português"
+            - pattern: "(?i)ingl"
+              value: "Inglês"
+      year:
+        - selector: "div.content p"
+          # regex: optional - first capture group is returned
+          regex: "(?:Year):\\s*(\\d{4})"
+      size:
+        - selector: "div.content p"
+          regex: "(\\d+(?:[.,]\\d+)?\\s*(?:GB|MB))"
+          # match_all: optional - collect all regex matches within a single node
+          match_all: true
+      magnet_link:
+        - selector: "a[href^='magnet']"
+          attr: "href"
+        - selector: "a[data-hashed]"
+          attr: "data-hashed"
+          # parse_function: optional - named parse function applied after all other steps
+          parse_function: "unhash_data"
+      imdb:
+        - selector: "div.content a[href*='imdb.com']"
+          attr: "href"
+      date:
+        - selector: "div.content span.date"
+          # format: optional - Go time.Parse layout for date fields
+          format: "2006-01-02"
+
+      # seeds: optional - if omitted (with peers), tracker scraping will be performed automatically
+      seeds:
+        - selector: "td.seeds"
+      # peers: optional - if omitted (with seeds), tracker scraping will be performed automatically
+      peers:
+        - selector: "td.peers"
+
+    # files: optional - extracts a file list from the detail page
+    files:
+      # selector: required (within files)
+      selector: "div.content ul li"
+      # name_regex: required (within files)
+      name_regex: "^(.+?)\\s+\\d"
+      # size_regex: required (within files)
+      size_regex: "(\\d+(?:[.,]\\d+)?\\s*(?:GB|MB))"

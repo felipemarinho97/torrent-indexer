@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 	"regexp"
 	"slices"
 	"strings"
@@ -188,7 +189,7 @@ func findYearFromText(text string, title string) (year string) {
 func findSizesFromText(text string) []string {
 	var sizes []string
 	// everything that ends with GB or MB, using ',' or '.' as decimal separator
-	re := regexp.MustCompile(`(\d+[\.,]?\d+) ?(GB|MB)`)
+	re := regexp.MustCompile(`(\d+[\.,]?(\d+)?) ?(GB|MB)`)
 	sizesMatch := re.FindAllStringSubmatch(text, -1)
 	if len(sizesMatch) > 0 {
 		for _, size := range sizesMatch {
@@ -237,6 +238,10 @@ func appendAudioISO639_2Code(title string, a []schema.Audio) string {
 // getAudioFromTitle extracts audio languages from the release title.
 // It checks for common patterns like "nacional", "dual", or "dublado"
 func getAudioFromTitle(releaseTitle string, audioFromContent []schema.Audio) []schema.Audio {
+	// if title is empty, return audio from content
+	if strings.TrimSpace(releaseTitle) == "" {
+		return audioFromContent
+	}
 	magnetAudio := []schema.Audio{}
 	isNacional := strings.Contains(strings.ToLower(releaseTitle), "nacional")
 	if isNacional {
@@ -269,4 +274,22 @@ func getAudioFromTitle(releaseTitle string, audioFromContent []schema.Audio) []s
 	})
 
 	return magnetAudio
+}
+
+func WriteResponse(w http.ResponseWriter, r *http.Request, postProcessed, raw []schema.IndexedTorrent) {
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(Response{
+		Results:      postProcessed,
+		Count:        len(postProcessed),
+		IndexedCount: len(raw),
+	}); err != nil {
+		logging.ErrorWithRequest(r).Err(err).Msg("Failed to encode response")
+	}
+}
+
+func WriteError(w http.ResponseWriter, r *http.Request, code int, err error) {
+	w.WriteHeader(code)
+	if encErr := json.NewEncoder(w).Encode(map[string]string{"error": err.Error()}); encErr != nil {
+		logging.ErrorWithRequest(r).Err(encErr).Msg("Failed to encode error response")
+	}
 }
