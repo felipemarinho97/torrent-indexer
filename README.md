@@ -15,7 +15,7 @@ Visit [https://torrent-indexer.darklyn.org/](https://torrent-indexer.darklyn.org
 - [bludv](https://bludvfilmes.tv/)
 - [torrent-dos-filmes](https://torrentdosfilmes.se/)
 - [starck-filmes](https://www.starckfilmes.fans/)
-- [rede-torrent](https://redetorrent.com/)
+- [rede-torrent](https://redestorrents.com/)
 - [vaca-torrent](https://vacatorrentmov.com/)
 
 ## Deploy
