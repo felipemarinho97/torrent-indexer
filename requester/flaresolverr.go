@@ -206,10 +206,38 @@ type Response struct {
 	} `json:"solution"`
 }
 
+// Solution is the useful part of a FlareSolverr response: the page body plus
+// the cookies and user agent the solver ended up with.
+type Solution struct {
+	Body []byte
+	// URL is where the solver ended up after redirects, which is not always the
+	// URL that was asked for.
+	URL       string
+	Cookies   []*http.Cookie
+	UserAgent string
+}
+
+// Initiated reports whether a usable FlareSolverr instance was found at startup.
+func (f *FlareSolverr) Initiated() bool {
+	return f.initiated
+}
+
 func (f *FlareSolverr) Get(ctx context.Context, _url string, attempts int) (io.ReadCloser, error) {
+	solution, err := f.GetSolution(ctx, _url, nil, attempts)
+	if err != nil {
+		return nil, err
+	}
+	return io.NopCloser(bytes.NewReader(solution.Body)), nil
+}
+
+// GetSolution is Get plus session plumbing: it sends the given cookies with the
+// request and reports back the cookies and user agent FlareSolverr ended up
+// with, so a caller driving a multi-request handshake can keep its own jar in
+// sync. Passing nil cookies is the same as calling Get.
+func (f *FlareSolverr) GetSolution(ctx context.Context, _url string, cookies []*http.Cookie, attempts int) (*Solution, error) {
 	// Check if the FlareSolverr instance was initiated
 	if !f.initiated {
-		return io.NopCloser(bytes.NewReader([]byte(""))), nil
+		return &Solution{}, nil
 	}
 
 	// Retrieve session from the pool (blocking if no sessions available)
@@ -228,6 +256,13 @@ func (f *FlareSolverr) Get(ctx context.Context, _url string, attempts int) (io.R
 		"url":        _url,
 		"maxTimeout": f.maxTimeout,
 		"session":    session,
+	}
+	if len(cookies) > 0 {
+		reqCookies := make([]map[string]string, 0, len(cookies))
+		for _, cookie := range cookies {
+			reqCookies = append(reqCookies, map[string]string{"name": cookie.Name, "value": cookie.Value})
+		}
+		body["cookies"] = reqCookies
 	}
 	jsonBody, err := json.Marshal(body)
 	if err != nil {
@@ -259,11 +294,17 @@ func (f *FlareSolverr) Get(ctx context.Context, _url string, attempts int) (io.R
 		if resp.StatusCode == http.StatusInternalServerError && attempts != 0 {
 			attempts--
 			logging.Warn().Str("url", _url).Int("attempts_left", attempts).Msg("FlareSolverr Internal Server Error, retrying")
-			return f.Get(ctx, _url, attempts) // Retry the request
+			return f.GetSolution(ctx, _url, cookies, attempts) // Retry the request
 		}
 
 		// log the http status code
 		return nil, fmt.Errorf("failed to get response: %s, statusCode: %s", response.Message, resp.Status)
+	}
+
+	solution := &Solution{
+		URL:       response.Solution.Url,
+		UserAgent: response.Solution.UserAgent,
+		Cookies:   solutionCookies(&response),
 	}
 
 	// Check if "Under attack" is in the response
@@ -279,7 +320,7 @@ func (f *FlareSolverr) Get(ctx context.Context, _url string, attempts int) (io.R
 	}
 
 	// If the response body is empty but cookies are present, make a new request
-	if response.Solution.Response == "" && len(response.Solution.Cookies) > 0 {
+	if response.Solution.Response == "" && len(solution.Cookies) > 0 {
 		logging.Debug().Str("url", _url).Msg("FlareSolverr making new request with cookies")
 		// Create a new request with cookies
 		client := &http.Client{
@@ -289,15 +330,8 @@ func (f *FlareSolverr) Get(ctx context.Context, _url string, attempts int) (io.R
 		if err != nil {
 			return nil, err
 		}
-		for _, cookie := range response.Solution.Cookies {
-			cookieJar.SetCookies(&url.URL{Host: cookie.Domain}, []*http.Cookie{
-				{
-					Name:   cookie.Name,
-					Value:  cookie.Value,
-					Domain: cookie.Domain,
-					Path:   cookie.Path,
-				},
-			})
+		for _, cookie := range solution.Cookies {
+			cookieJar.SetCookies(&url.URL{Host: cookie.Domain}, []*http.Cookie{cookie})
 		}
 		client.Jar = cookieJar
 
@@ -313,6 +347,7 @@ func (f *FlareSolverr) Get(ctx context.Context, _url string, attempts int) (io.R
 		if err != nil {
 			return nil, err
 		}
+		defer secondResp.Body.Close()
 
 		respByte := new(bytes.Buffer)
 		_, err = respByte.ReadFrom(secondResp.Body)
@@ -321,9 +356,25 @@ func (f *FlareSolverr) Get(ctx context.Context, _url string, attempts int) (io.R
 		}
 
 		// Return the body of the second request
-		return io.NopCloser(bytes.NewReader(respByte.Bytes())), nil
+		solution.Body = respByte.Bytes()
+		return solution, nil
 	}
 
 	// Return the original response body
-	return io.NopCloser(bytes.NewReader([]byte(response.Solution.Response))), nil
+	solution.Body = []byte(response.Solution.Response)
+	return solution, nil
+}
+
+// solutionCookies converts the cookies FlareSolverr reports into net/http ones.
+func solutionCookies(response *Response) []*http.Cookie {
+	cookies := make([]*http.Cookie, 0, len(response.Solution.Cookies))
+	for _, cookie := range response.Solution.Cookies {
+		cookies = append(cookies, &http.Cookie{
+			Name:   cookie.Name,
+			Value:  cookie.Value,
+			Domain: cookie.Domain,
+			Path:   cookie.Path,
+		})
+	}
+	return cookies
 }
