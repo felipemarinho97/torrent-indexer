@@ -25,31 +25,32 @@ func Filter[A any](arr []A, f func(A) bool) []A {
 // ParallelFlatMap applies a function to each item in the iterable concurrently
 // and returns a slice of results. It can handle errors by passing an error handler function.
 func ParallelFlatMap[T any, R any](iterable []T, mapper func(item T) ([]R, error), errHandler ...func(error)) []R {
-	var itChan = make(chan []R)
-	var errChan = make(chan error)
+	type result struct {
+		items []R
+		err   error
+	}
+	// One buffered slot per item: every goroutine sends exactly once and
+	// never blocks, even if the mapper returns an error.
+	results := make(chan result, len(iterable))
 	mappedItems := []R{}
 	for _, link := range iterable {
 		go func(link T) {
 			items, err := mapper(link)
-			if err != nil {
-				errChan <- err
-			}
-			itChan <- items
+			results <- result{items: items, err: err}
 		}(link)
 	}
 
 	for range iterable {
-		select {
-		case items := <-itChan:
-			mappedItems = append(mappedItems, items...)
-		case err := <-errChan:
+		res := <-results
+		if res.err != nil {
 			for _, handler := range errHandler {
-				handler(err)
+				handler(res.err)
 			}
 			if len(errHandler) == 0 {
-				logging.Error().Err(err).Msg("Error in ParallelFlatMap")
+				logging.Error().Err(res.err).Msg("Error in ParallelFlatMap")
 			}
 		}
+		mappedItems = append(mappedItems, res.items...)
 	}
 	return mappedItems
 }

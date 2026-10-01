@@ -86,6 +86,20 @@ func New(rawurl string) (*Goscrape, error) {
 	}, nil
 }
 
+// Close releases the UDP socket opened by connect, if any
+func (g *Goscrape) Close() error {
+	g.Lock()
+	defer g.Unlock()
+
+	if g.conn == nil {
+		return nil
+	}
+	err := g.conn.Close()
+	g.conn = nil
+	g.session = time.Time{}
+	return err
+}
+
 // SetRetryLimit sets the maximum number of attempts to do before giving up
 func (g *Goscrape) SetRetryLimit(retries int) {
 	g.retries = retries

@@ -245,6 +245,7 @@ func (f *FlareSolverr) Get(ctx context.Context, _url string, attempts int) (io.R
 	if err != nil {
 		return nil, err
 	}
+	defer resp.Body.Close()
 
 	// Parse the response
 	var response Response
@@ -313,6 +314,7 @@ func (f *FlareSolverr) Get(ctx context.Context, _url string, attempts int) (io.R
 		if err != nil {
 			return nil, err
 		}
+		defer secondResp.Body.Close()
 
 		respByte := new(bytes.Buffer)
 		_, err = respByte.ReadFrom(secondResp.Body)
