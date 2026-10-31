@@ -114,7 +114,7 @@ func getTorrentsTorrentDosFilmes(ctx context.Context, i *Indexer, link, referer 
 	}
 
 	article := doc.Find("article")
-	title := strings.Replace(article.Find(".title > h1").Text(), " - Download", "", -1)
+	title := strings.ReplaceAll(article.Find(".title > h1").Text(), " - Download", "")
 	textContent := article.Find("div.content")
 	date := getPublishedDateFromMeta(doc)
 	magnets := textContent.Find("a[href^=\"magnet\"]")

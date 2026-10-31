@@ -129,7 +129,7 @@ func getTorrents(ctx context.Context, i *Indexer, link, referer string) ([]schem
 	}
 
 	article := doc.Find("article")
-	title := strings.Replace(article.Find(".entry-title").Text(), " - Download", "", -1)
+	title := strings.ReplaceAll(article.Find(".entry-title").Text(), " - Download", "")
 	textContent := article.Find("div.entry-content")
 	date := getPublishedDateFromMeta(doc)
 
@@ -275,10 +275,10 @@ func parseLocalizedDate(datePublished string) (time.Time, error) {
 
 func processTitle(title string, a []schema.Audio) string {
 	// remove ' - Donwload' from title
-	title = strings.Replace(title, " – Download", "", -1)
+	title = strings.ReplaceAll(title, " – Download", "")
 
 	// remove 'comando.la' from title
-	title = strings.Replace(title, "comando.la", "", -1)
+	title = strings.ReplaceAll(title, "comando.la", "")
 
 	// add audio ISO 639-2 code to title between ()
 	title = appendAudioISO639_2Code(title, a)

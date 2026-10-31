@@ -116,7 +116,10 @@ func GetLeechsAndSeeds(ctx context.Context, r *cache.Redis, m *monitoring.Metric
 				return fallbackPeer.Leechers, fallbackPeer.Seeders, nil
 			}
 			return 0, 0, fmt.Errorf("unable to get peers from trackers for infohash: %s (timeout)", infoHash)
-		case <-errChan:
+		case scrapeErr := <-errChan:
+			if scrapeErr != nil {
+				logging.Debug().Err(scrapeErr).Str("info_hash", infoHash).Msg("Tracker scrape error")
+			}
 			responsesReceived++
 		case peer := <-peerChan:
 			responsesReceived++

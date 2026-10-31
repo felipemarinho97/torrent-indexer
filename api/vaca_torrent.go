@@ -417,8 +417,8 @@ func getTorrentsVacaTorrent(ctx context.Context, i *Indexer, link, referer strin
 
 func processVacaTorrentTitle(title string, audio []schema.Audio, season string) string {
 	// Remove common suffixes
-	title = strings.Replace(title, " – Download", "", -1)
-	title = strings.Replace(title, " - Download", "", -1)
+	title = strings.ReplaceAll(title, " – Download", "")
+	title = strings.ReplaceAll(title, " - Download", "")
 	title = strings.TrimSpace(title)
 
 	// Add season if present
