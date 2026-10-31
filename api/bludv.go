@@ -115,7 +115,7 @@ func getTorrentsBluDV(ctx context.Context, i *Indexer, link, referer string) ([]
 	}
 
 	article := doc.Find(".post")
-	title := strings.Replace(article.Find(".title > h1").Text(), " - Download", "", -1)
+	title := strings.ReplaceAll(article.Find(".title > h1").Text(), " - Download", "")
 	textContent := article.Find("div.content")
 	date := getPublishedDate(doc)
 	magnets := textContent.Find("a[href^=\"magnet\"]")

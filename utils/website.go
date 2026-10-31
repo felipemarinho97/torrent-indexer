@@ -65,7 +65,7 @@ func getRegexes() []*regexp.Regexp {
 		for _, prefix := range commonSubdomains {
 			for _, name := range commonWebsiteSLDs {
 				for _, tld := range commonTLDs {
-					websites.WriteString(fmt.Sprintf("%s%s%s|", prefix, name, tld))
+					fmt.Fprintf(&websites, "%s%s%s|", prefix, name, tld)
 				}
 			}
 		}

@@ -58,14 +58,17 @@ func GetLeechsAndSeeds(ctx context.Context, r *cache.Redis, m *monitoring.Metric
 		return leech, seed, nil
 	}
 
-	var peerChan = make(chan peers)
-	var errChan = make(chan error)
-
 	additionalTrackers := getAdditionalTrackers(ctx, r)
 	allTrackers := make([]string, 0, len(trackers)+len(additionalTrackers))
 	allTrackers = append(allTrackers, trackers...)
 	allTrackers = append(allTrackers, additionalTrackers...)
 	allTrackers = utils.StableUniq(allTrackers)
+
+	// Buffered so that scrapers finishing after this function has returned
+	// (first non-zero answer or timeout) can still send and exit instead of
+	// blocking forever.
+	var peerChan = make(chan peers, len(allTrackers))
+	var errChan = make(chan error, len(allTrackers))
 
 	for _, tracker := range allTrackers {
 		go func(tracker string) {
@@ -75,6 +78,7 @@ func GetLeechsAndSeeds(ctx context.Context, r *cache.Redis, m *monitoring.Metric
 				errChan <- err
 				return
 			}
+			defer scraper.Close()
 
 			scraper.SetTimeout(500 * time.Millisecond)
 
@@ -112,7 +116,10 @@ func GetLeechsAndSeeds(ctx context.Context, r *cache.Redis, m *monitoring.Metric
 				return fallbackPeer.Leechers, fallbackPeer.Seeders, nil
 			}
 			return 0, 0, fmt.Errorf("unable to get peers from trackers for infohash: %s (timeout)", infoHash)
-		case <-errChan:
+		case scrapeErr := <-errChan:
+			if scrapeErr != nil {
+				logging.Debug().Err(scrapeErr).Str("info_hash", infoHash).Msg("Tracker scrape error")
+			}
 			responsesReceived++
 		case peer := <-peerChan:
 			responsesReceived++
